@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { formatBpm } from "@/lib/format";
 import { faderToTempo, TEMPO_RANGES, tempoRangeEnds, tempoToFader, type TempoRange } from "@/lib/player";
 import styles from "./TempoField.module.css";
 
 /** A CDJ fader: down increases tempo, and the midpoint is always unity. */
-export function TempoSlider({ tempo, onTempo, idle, synced, masterTempo, onMasterTempo, onReset, resetLocked, onUnlock }: {
+export function TempoSlider({ tempo, bpmX100, onTempo, idle, synced, masterTempo, onMasterTempo, onReset, resetLocked, onUnlock }: {
   tempo: number;
+  /** The track's own BPM, so the fader reads in BPM; 0 when it has none. */
+  bpmX100: number;
   onTempo: (tempo: number) => void;
   idle: boolean;
   synced: boolean;
@@ -19,6 +22,10 @@ export function TempoSlider({ tempo, onTempo, idle, synced, masterTempo, onMaste
   const [cursor, setCursor] = useState<{ x: number; y: number; tempo: number } | null>(null);
   const ends = tempoRangeEnds(range);
   const disabled = idle || synced || resetLocked;
+  // The BPM the deck plays at, or the percentage when the track has no BPM to scale.
+  const reading = (at: number) => bpmX100 > 0
+    ? `${formatBpm(Math.round(bpmX100 * at))} BPM`
+    : `${at >= 1 ? "+" : ""}${((at - 1) * 100).toFixed(2)}%`;
   const move = (event: React.PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const next = faderToTempo(2 * (event.clientY - rect.top) / Math.max(1, rect.height) - 1, range);
@@ -38,7 +45,7 @@ export function TempoSlider({ tempo, onTempo, idle, synced, masterTempo, onMaste
           data-on={resetLocked ? "" : undefined} disabled={idle}
           onClick={resetLocked ? onUnlock : onReset}>RESET</button>
         <div className={styles.track} role="slider" aria-label="Tempo" aria-orientation="vertical"
-          aria-valuemin={-ends.down} aria-valuemax={ends.up} aria-valuenow={Number(((tempo - 1) * 100).toFixed(2))}
+          aria-valuemin={-ends.down} aria-valuemax={ends.up} aria-valuenow={Number(((tempo - 1) * 100).toFixed(2))} aria-valuetext={reading(tempo)}
           aria-disabled={disabled} tabIndex={disabled ? -1 : 0}
           onPointerDown={(event) => {
             if (disabled || event.button !== 0) return;
@@ -65,7 +72,7 @@ export function TempoSlider({ tempo, onTempo, idle, synced, masterTempo, onMaste
       </div>
       {cursor && !disabled ? createPortal(
         <output className={styles.cursorReadout} style={{ left: cursor.x, top: cursor.y }}>
-          {`${cursor.tempo >= 1 ? "+" : ""}${((cursor.tempo - 1) * 100).toFixed(2)}%`}
+          {reading(cursor.tempo)}
         </output>, document.body,
       ) : null}
     </aside>

@@ -108,7 +108,10 @@ test("each deck has its tempo fader to hand, and dragging it changes the tempo",
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.9);
+  // The readout under the pointer is the BPM the deck now plays at, not a percentage.
+  await expect(page.locator("output").filter({ hasText: /^\d+\.\d{2} BPM$/ })).toBeVisible();
   await page.mouse.up();
+  await expect(fader).toHaveAttribute("aria-valuetext", /^\d+\.\d{2} BPM$/);
   await expect.poll(async () => Number(await fader.getAttribute("aria-valuenow"))).toBeGreaterThan(1);
   // RESET goes back to the track's own speed and leaves the fader free.
   await a.getByRole("button", { name: "Reset tempo" }).click();
