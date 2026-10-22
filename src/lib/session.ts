@@ -214,12 +214,17 @@ export function sanitiseSession(value: unknown): Session {
 }
 
 const KEY = "rbl.session";
+/** Set by every save from this build on. A session saved by an older build
+ * opens once in PERFORMANCE, otherwise the mixer hides behind the layout menu. */
+const PERFORMANCE_SEEN = "rbl.performance-seen";
 
 /** Reads the stored session, falling back to the defaults on anything odd. */
 export function loadSession(): Session {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw === null ? DEFAULT_SESSION : sanitiseSession(JSON.parse(raw));
+    if (raw === null) return DEFAULT_SESSION;
+    const session = sanitiseSession(JSON.parse(raw));
+    return localStorage.getItem(PERFORMANCE_SEEN) === null ? { ...session, layout: "performance" } : session;
   } catch {
     // A private window, cleared storage, or a browser that refuses it: the
     // defaults are a working interface, so there is nothing to report.
@@ -230,6 +235,7 @@ export function loadSession(): Session {
 export function saveSession(session: Session): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(session));
+    localStorage.setItem(PERFORMANCE_SEEN, "1");
   } catch {
     // Not being able to remember the layout is not worth interrupting anyone.
   }

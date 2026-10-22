@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 
 import {
@@ -5,7 +6,9 @@ import {
   DEFAULT_SUB_TREE_WIDTH,
   DEFAULT_SUB_WIDTH,
   DEFAULT_TREE_WIDTH,
+  loadSession,
   sanitiseSession,
+  saveSession,
   SEEDED_NODES,
   SEEDED_ROWS,
 } from "./session";
@@ -139,5 +142,15 @@ describe("sanitiseSession", () => {
     expect(sanitiseSession({}).dualControl).toBe(false);
     expect(sanitiseSession({ dualControl: "yes" }).dualControl).toBe(false);
     expect(DEFAULT_SESSION.dualControl).toBe(false);
+  });
+});
+
+describe("loadSession", () => {
+  it("opens a session from an older build in PERFORMANCE once, then keeps the choice", () => {
+    localStorage.clear();
+    localStorage.setItem("rbl.session", JSON.stringify({ layout: "two" }));
+    expect(loadSession().layout).toBe("performance");
+    saveSession({ ...DEFAULT_SESSION, layout: "two" });
+    expect(loadSession().layout).toBe("two");
   });
 });
