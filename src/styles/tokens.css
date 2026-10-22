@@ -72,6 +72,17 @@
   --c-mixer-knob-pointer: #D0D0D0; /* measured from the 2-player capture docs/screenshots (rekordbox 7.2.11, 2x): the knob's tick, the one bright thing in the gain block */
   --c-mixer-label: #414141; /* measured from the 2-player capture docs/screenshots (rekordbox 7.2.11, 2x): the 0.0dB readout and the A-GAIN caption, both greyed */
   --c-mixer-ab: #969696; /* measured from the 2-player capture docs/screenshots (rekordbox 7.2.11, 2x): the A and B letters above and below the crossfader */
+  --c-console-rule: #2C2C2C; /* UNMEASURED: PERFORMANCE's "Console" look, the hairline between the two waveforms and down the mixer's middle */
+  --c-console-edge: #3A3A3A; /* UNMEASURED: the brighter line under the waveforms and either side of the mixer */
+  --c-console-deck: #0C0C0C; /* UNMEASURED: a deck's ground, just off black so the mixer and waveforms read as separate boards */
+  --c-console-mixer-top: #1C1C1C; /* UNMEASURED: the mixer strip's ground, lighter at the top like a lit console */
+  --c-console-mixer-bottom: #141414; /* UNMEASURED: the same ground at the bottom */
+  --c-console-knob-rim: #3C3C3C; /* UNMEASURED: a matte knob's edge */
+  --c-console-knob-face: #1B1B1B; /* UNMEASURED: a matte knob's face */
+  --c-console-knob-skirt: #262626; /* UNMEASURED: the ring between the knob's edge and its face */
+  --c-console-pointer: #F2F2F2; /* UNMEASURED: the knob's single pointer line */
+  --c-console-cap-top: #ECECEC; /* UNMEASURED: a fader cap's lit top */
+  --c-console-cap-bottom: #9A9A9A; /* UNMEASURED: the cap's shaded bottom */
   --c-simple-dim: #878787; /* sampled from the simple player capture docs/screenshots (Screenshot 2026-09-09 at 9.03.41 PM, rekordbox 7.2.11, 2x): the artist and the elapsed time, solid (135,135,135) inside the strokes */
   --c-simple-head: #707070; /* sampled from the simple player capture docs/screenshots (Screenshot 2026-09-09 at 9.03.41 PM, rekordbox 7.2.11, 2x): the position marker over the overview, a 1pt (112,112,112) line while the deck sits paused; whether it lights when the deck runs is not captured */
   --c-play-glyph: #646464; /* sampled from the simple player capture docs/screenshots (Screenshot 2026-09-09 at 9.03.41 PM, rekordbox 7.2.11, 2x): the triangle inside the resting PLAY ring, a flat (100,100,100) */

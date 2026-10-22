@@ -125,7 +125,7 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   grid-template-areas: "waves waves waves" "a mixer b" "gutter gutter gutter";
   grid-template-rows: var(--s-perf-waves-h) var(--s-perf-deck-h) auto;
-  column-gap: var(--s-mixer-gutter-w);
+  column-gap: 0;
 }
 .decks[data-performance] > :nth-child(1) { grid-area: mixer; }
 .decks[data-performance] > :nth-child(2) { grid-area: a; }
@@ -135,10 +135,10 @@
 .waves {
   display: grid;
   grid-template-rows: 1fr 1fr;
-  gap: var(--s-player-margin);
   min-height: 0;
-  margin-bottom: var(--s-player-margin);
+  border-bottom: 2px solid var(--c-console-edge);
 }
+.waveSlot + .waveSlot { border-top: 1px solid var(--c-console-rule); }
 .waveSlot { display: grid; min-height: 0; min-width: 0; }
 
 /* The shared transport column: deck A's half above deck B's, each exactly

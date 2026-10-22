@@ -1352,6 +1352,7 @@ button.cueDelete:disabled { color: var(--c-icon-off); }
 .player[data-performance] {
   grid-template-columns: minmax(0, 1fr);
   height: 100%;
+  background: var(--c-console-deck);
 }
 .player[data-performance] .side { display: none; }
 .player[data-performance] .main {
@@ -1436,6 +1437,19 @@ button.cueDelete:disabled { color: var(--c-icon-off); }
   background: var(--c-black);
 }
 .detailPortal > .detailRow { padding: 0; }
+/* The zoom as a strip down the waveform's left edge rather than a box
+   floating over it. */
+.detailPortal .zoom {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  translate: none;
+  gap: 2px;
+  padding: 0 4px;
+  border-radius: 0;
+  border-right: 1px solid var(--c-console-rule);
+}
+.detailPortal .zoom button { width: 18px; height: 18px; }
 .detailPortal[data-empty] .playhead { display: none; }
 .detailPortal[data-armed] .playhead { background: var(--c-playhead-armed); }
 .player[data-performance] .sync .chip { width: auto; height: 17px; padding: 0 6px; white-space: nowrap; font-size: 9px; }

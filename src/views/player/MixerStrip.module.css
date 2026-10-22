@@ -147,8 +147,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  padding: 6px 8px;
-  background: var(--c-panel);
+  padding: 6px 10px;
+  background: linear-gradient(var(--c-console-mixer-top), var(--c-console-mixer-bottom));
+  border-inline: 1px solid var(--c-console-edge);
   color: var(--c-text);
   font-size: var(--f-size-dual-button);
   user-select: none;
@@ -164,8 +165,9 @@
 /* The knobs down the column and the channel fader beside them; deck B's
    mirrors deck A's, so both faders sit at the middle like a mixer's. */
 .perfChannel { display: flex; gap: 6px; min-height: 0; }
+.perfChannel:first-child { padding-right: 14px; border-right: 1px solid var(--c-console-rule); }
 .perfChannel:last-child { flex-direction: row-reverse; }
-.perfKnobs { display: flex; flex-direction: column; gap: 2px; }
+.perfKnobs { display: flex; flex-direction: column; gap: 0; }
 .perfRow { display: flex; gap: 6px; }
 
 .perfKnob {
@@ -175,10 +177,25 @@
   gap: 1px;
   min-width: 30px;
 }
+/* A matte disc with one pointer line: the skirt is the knob's own colour,
+   the face a shade darker inside it. */
 .perfKnob .knob {
+  width: 22px;
+  height: 22px;
   cursor: ns-resize;
-  background: var(--c-black);
-  border-color: var(--c-raised);
+  background: var(--c-console-knob-skirt);
+  border-color: var(--c-console-knob-rim);
+  box-shadow: inset 0 0 0 2px var(--c-console-knob-skirt), inset 0 0 0 11px var(--c-console-knob-face);
+}
+/* From a little off centre to the edge, turning about the centre. */
+.perfKnob .tick {
+  width: 2px;
+  height: 6px;
+  margin-left: -1px;
+  bottom: calc(50% + 3px);
+  border-radius: 1px;
+  background: var(--c-console-pointer);
+  transform-origin: 50% calc(100% + 3px);
 }
 .perfKnob .caption { font-size: 7.5px; color: var(--c-mixer-ab); }
 
@@ -204,7 +221,8 @@
   cursor: ew-resize;
   touch-action: none;
 }
-.perfFader[data-vertical] { width: 18px; height: 100%; min-height: 60px; cursor: ns-resize; }
+/* The cap overhangs the track's ends by half its height, as a real fader's does. */
+.perfFader[data-vertical] { width: 18px; height: auto; align-self: stretch; min-height: 60px; margin: 11px 0; cursor: ns-resize; }
 .perfFader:focus-visible { outline: 1px solid var(--c-accent); }
 .perfFader::before {
   content: "";
@@ -221,12 +239,24 @@
   position: absolute;
   top: 2px;
   bottom: 2px;
-  width: 6px;
-  margin-left: -3px;
-  border-radius: 1px;
-  background: var(--c-outline);
+  width: 12px;
+  margin-left: -6px;
+  border-radius: 2px;
+  background: linear-gradient(var(--c-console-cap-top), var(--c-console-cap-bottom));
 }
-.perfFader[data-vertical] .perfHandle { top: auto; left: 2px; right: 2px; width: auto; height: 6px; margin: 0 0 -3px; }
+/* The cap's centre line, which is where it reads. */
+.perfHandle::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--c-black);
+}
+.perfFader[data-vertical] .perfHandle { top: auto; left: 2px; right: 2px; width: auto; height: 22px; margin: 0 0 -11px; }
+.perfFader[data-vertical] .perfHandle::after { top: 50%; bottom: auto; left: 1px; right: 1px; width: auto; height: 2px; margin: -1px 0 0; }
 
 .perfCross { display: flex; align-items: center; gap: 4px; }
 
