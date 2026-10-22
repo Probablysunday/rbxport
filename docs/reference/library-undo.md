@@ -7,7 +7,8 @@ library or user files can be undone, and why the rest cannot. Audited for
 #427 on 2026-10-16 against `dev` at `4a42662a`. Update the table when an
 action is added or starts recording history. Folder replacement coverage was
 updated during integration on 2026-10-21 to retain #426 support already in `dev`.
-Cue and loop edits were added to the history for #504 on 2026-10-22.
+Cue and loop edits were added to the history for #504 on 2026-10-22, and
+Add Tracks to Playlist and playlist reordering for #499 the same day.
 
 Evidence markers follow the project convention: `[OBS]` is something read in
 the code or observed, `[ASSUME]` is inferred, `[UNKNOWN]` is open.
@@ -39,15 +40,16 @@ the code or observed, `[ASSUME]` is inferred, `[UNKNOWN]` is open.
   also calls `wrote_outside_history(_, true)` to clear both stacks [OBS code].
 - **Payloads are exact.** Entries keep row ids and before/after column values
   (`PlaylistDeletion`, `PlaylistRename`, `PlaylistMove`,
-  `PlaylistTrackRemoval`, `TrackEdit`, `TrackTagEdit`, `CueRevision` in
+  `PlaylistTrackRemoval`, `PlaylistTrackAddition`, `PlaylistReorder`,
+  `TrackEdit`, `TrackTagEdit`, `CueRevision` in
   `crates/rbl-db/src/write.rs`). A multi-track edit is one entry with one
   step per track, undone last first [OBS code].
 - **Conflict check (#506).** Before Undo or Redo writes, the rows it would
   write must still hold what the entry expects: the edit's result for Undo,
   what it replaced for Redo. Track fields compare by SQL `IS` (NULL equals
   NULL); My Tags as a set; a rename by name; a move by parent and place
-  among its siblings; a track removal by the playlist's live members in
-  order; deletion, Sort Items and folder-drop replacement by the rows they
+  among its siblings; a track removal or addition by the playlist's live
+  members in order; a reorder by those members and their `TrackNo`; deletion, Sort Items and folder-drop replacement by the rows they
   name. An entry of several tracks is checked whole before any is written.
   When something outside the history changed one since (a player over LINK,
   a USB import, rekordbox while RBXport stayed open), nothing is written,
@@ -147,8 +149,8 @@ holds their ids.
 | Move (drag in the tree) | `move_playlist` | `ParentID`, sibling `Seq` | Undo | same | No |
 | Delete playlist or folder (with contents) | `delete_playlist` | tombstones subtree and memberships | Undo | `a_deleted_playlist_tree_can_be_undone_and_redone` | No while the entry lives |
 | Remove Tracks from Playlist | `remove_tracks_from_playlist` | tombstones memberships, renumbers | Undo | `library_history_names_and_reverses_each_supported_edit` | No |
-| Add Tracks to Playlist (menu, drop, duplicates "Add") | `add_tracks_to_playlist` | new memberships | Not recorded | code | No. #499 |
-| Reorder, Renumber Track Order | `reorder_playlist` | `TrackNo` of every member | Not recorded | code | Previous order lost. #499 |
+| Add Tracks to Playlist (menu, drop, duplicates "Add", AppleScript `add`) | `add_tracks_to_playlist` | new memberships | Undo, one entry per drop or menu choice: the window's slices of 100 share a `transaction` and join the entry while each carries on from the last. Undo soft-deletes exactly the rows the add made (an earlier copy of a duplicate stays); Redo brings the same rows back at their numbers. Tracks imported on the way in stay in the collection. Refused if the playlist's tracks changed since | `an_add_sent_in_slices_is_one_undo_and_one_redo`, `undo_of_an_add_with_duplicates_leaves_the_tracks_already_there`, `undo_of_an_add_or_reorder_refuses_a_playlist_changed_since` (`src-tauri/tests/commands.rs`); `an_add_undoes_and_redoes_the_exact_rows_it_made` and the other #499 tests in `crates/rbl-db/tests/writes.rs` | No while the entry lives (#499) |
+| Reorder, Renumber Track Order | `reorder_playlist` | `TrackNo` of every member | Undo, one "Reorder Playlist" entry: every member's `TrackNo` before and after. Refused if the playlist's tracks or numbers changed since | `a_reorder_is_one_undo_and_one_redo`, `undo_of_an_add_or_reorder_refuses_a_playlist_changed_since`; `a_reorder_undoes_and_redoes_every_number` (`writes.rs`) | No (#499) |
 | Create Playlist / Folder / Intelligent Playlist (also AppleScript `make playlist`) | `create_playlist`, `create_folder`, `create_smart_playlist` | new `djmdPlaylist` row | Not recorded | code | No. #500 |
 | Edit Intelligent Playlist rule | `set_smart_rule` | `SmartList` | Not recorded | code | Old rule lost. #500 |
 | Add Artwork (playlist or folder) | `details::add_playlist_artwork` | `ImagePath` | Not recorded | code | Old image reference lost. #500 |
