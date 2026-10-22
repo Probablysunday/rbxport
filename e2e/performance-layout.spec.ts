@@ -118,3 +118,19 @@ test("each deck has its tempo fader to hand, and dragging it changes the tempo",
   await expect(fader).toHaveAttribute("aria-valuenow", "0");
   await expect(fader).toHaveAttribute("aria-disabled", "false");
 });
+
+test("a double-click on the BPM under the tempo fader types a tempo in", async ({ page }) => {
+  const { a } = await performance(page);
+  await a.getByRole("button", { name: "Type a tempo" }).dblclick();
+  const field = a.getByRole("textbox", { name: "Player tempo in BPM" });
+  await field.fill("130");
+  await field.press("Enter");
+  await expect(a.getByTestId("player-bpm")).toHaveText("130.00");
+  await expect(a.getByRole("button", { name: "Type a tempo" })).toHaveText("130.00");
+
+  // Escape leaves the tempo where it was.
+  await a.getByRole("button", { name: "Type a tempo" }).dblclick();
+  await field.fill("120");
+  await field.press("Escape");
+  await expect(a.getByTestId("player-bpm")).toHaveText("130.00");
+});

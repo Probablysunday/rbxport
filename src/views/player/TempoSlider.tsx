@@ -2,14 +2,17 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { formatBpm } from "@/lib/format";
 import { faderToTempo, TEMPO_RANGES, tempoRangeEnds, tempoToFader, type TempoRange } from "@/lib/player";
+import { BpmInput } from "./TempoToggle";
 import styles from "./TempoField.module.css";
 
 /** A CDJ fader: down increases tempo, and the midpoint is always unity. */
-export function TempoSlider({ tempo, bpmX100, onTempo, idle, synced, masterTempo, onMasterTempo, onReset, resetLocked, onUnlock }: {
+export function TempoSlider({ tempo, bpmX100, onTempo, onBpmChange, idle, synced, masterTempo, onMasterTempo, onReset, resetLocked, onUnlock }: {
   tempo: number;
   /** The track's own BPM, so the fader reads in BPM; 0 when it has none. */
   bpmX100: number;
   onTempo: (tempo: number) => void;
+  /** Given, a BPM readout under the fader that a double-click turns into a field. */
+  onBpmChange?: ((bpm: number) => void) | undefined;
   idle: boolean;
   synced: boolean;
   masterTempo: boolean;
@@ -19,6 +22,7 @@ export function TempoSlider({ tempo, bpmX100, onTempo, idle, synced, masterTempo
   onUnlock: () => void;
 }) {
   const [range, setRange] = useState<TempoRange>(6);
+  const [typing, setTyping] = useState(false);
   const [cursor, setCursor] = useState<{ x: number; y: number; tempo: number } | null>(null);
   const ends = tempoRangeEnds(range);
   const disabled = idle || synced || resetLocked;
@@ -70,6 +74,17 @@ export function TempoSlider({ tempo, bpmX100, onTempo, idle, synced, masterTempo
           <span className={styles.knob} style={{ top: `${(tempoToFader(tempo, range) + 1) * 50}%` }} aria-hidden />
         </div>
       </div>
+      {onBpmChange && bpmX100 > 0 ? typing ? (
+        <BpmInput bpmX100={Math.round(bpmX100 * tempo)} baseBpmX100={bpmX100} onBpmChange={onBpmChange}
+          onDone={() => setTyping(false)} className={styles.sliderBpm} />
+      ) : (
+        <button type="button" className={`${styles.tempoToggle} ${styles.sliderBpm}`} disabled={idle}
+          aria-label="Type a tempo" title="Double-click to type a BPM"
+          onDoubleClick={() => setTyping(true)}
+          onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setTyping(true); } }}>
+          {formatBpm(Math.round(bpmX100 * tempo))}
+        </button>
+      ) : null}
       {cursor && !disabled ? createPortal(
         <output className={styles.cursorReadout} style={{ left: cursor.x, top: cursor.y }}>
           {reading(cursor.tempo)}

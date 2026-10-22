@@ -3027,7 +3027,7 @@ export const Player = memo(function Player({
             never locks it: it is there to be played, not opened on purpose. */}
         {viewPrefs.tempoSlider || sideBySide ? (
           <div className={styles.tempoOverlay}>
-            <TempoSlider tempo={playback.tempo} bpmX100={bpmX100} onTempo={playback.setTempo}
+            <TempoSlider tempo={playback.tempo} bpmX100={bpmX100} onTempo={playback.setTempo} onBpmChange={setDisplayedBpm}
               idle={playback.idle} synced={synced} masterTempo={playback.masterTempo}
               onMasterTempo={playback.setMasterTempo} onReset={resetTempo}
               resetLocked={tempoResetLocked && !sideBySide} onUnlock={() => setTempoResetLocked(false)} />
