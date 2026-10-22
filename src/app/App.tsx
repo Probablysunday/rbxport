@@ -41,7 +41,7 @@ import { hasCommand, runCommand } from "@/lib/commands";
 import { browserFocus, followBrowserFocus, onBrowserFocus } from "@/lib/browserFocus";
 import { menuBarEnabled, menuBarSide, menuBarState, onMenuBarState } from "@/lib/menuBar";
 import { hasEditHistory, runEditHistory, setLibraryEditHistory } from "@/lib/editHistory";
-import { transposeKey } from "@/lib/camelot";
+import { keySyncShift, transposeKey } from "@/lib/camelot";
 import { stepMasterGain, toggleMute } from "@/lib/volume";
 import { clampWidth, TREE_BOUNDS } from "@/lib/splitter";
 import { exportSummary } from "@/lib/exportSummary";
@@ -272,6 +272,9 @@ function AppBody() {
   // Where each deck's transport is drawn in the two-deck layouts. State rather
   // than a ref, because the players have to re-render once the slots exist.
   const [transportA, setTransportA] = useState<HTMLDivElement | null>(null);
+  /** Where the PERFORMANCE layout stacks each deck's detail waveform. */
+  const [detailA, setDetailA] = useState<HTMLDivElement | null>(null);
+  const [detailB, setDetailB] = useState<HTMLDivElement | null>(null);
   const [transportB, setTransportB] = useState<HTMLDivElement | null>(null);
   /**
    * DUAL CONTROL: one zoom and one beat-jump size for both decks.
@@ -293,10 +296,20 @@ function AppBody() {
    * deck the master puts its own light out.
    */
   const [synced, setSynced] = useState<Record<DeckId, boolean>>({ a: false, b: false });
+  /** KEY SYNC held on, per deck: the deck keeps a key that mixes with the master's. */
+  const [keySynced, setKeySynced] = useState<Record<DeckId, boolean>>({ a: false, b: false });
   const setSyncMaster = useCallback((deck: DeckId) => {
     setSyncMasterState(deck);
     setSynced((s) => (s[deck] ? { ...s, [deck]: false } : s));
+    setKeySynced((s) => (s[deck] ? { ...s, [deck]: false } : s));
   }, []);
+  const toggleKeySync = useMemo(
+    () => ({
+      a: () => setKeySynced((s) => ({ ...s, a: !s.a })),
+      b: () => setKeySynced((s) => ({ ...s, b: !s.b })),
+    }),
+    [],
+  );
   const toggleSync = useMemo(
     () => ({
       a: () => setSynced((s) => ({ ...s, a: !s.a })),
@@ -525,7 +538,9 @@ function AppBody() {
   }, []);
   // Checks on its own a while after launch when Preferences says so; the
   // menu and Preferences ask by hand.
-  const updater = useUpdater(advancedPrefs.checkUpdates, advancedPrefs.updateFrequency);
+  // This fork never checks on its own: the update server is upstream rbxport's,
+  // and its release would replace this build, mixer and all, on disk.
+  const updater = useUpdater(false, advancedPrefs.updateFrequency);
   const checkForUpdates = updater.check;
   const openWhatsNew = useCallback(() => {
     const release = updater.state.phase === "ready" ? `#v${updater.state.ready.version}` : "";
@@ -878,6 +893,11 @@ function AppBody() {
     if (target) setSelectedNode(target);
   }, [tree, viewPrefs.allTracks]);
   const masterBpmX100 = (syncMaster === "b" ? playerTrackB : playerTrack)?.bpmX100 ?? null;
+  // The shift KEY SYNC holds each following deck at, from the master's key as it sounds.
+  const masterKey = (syncMaster === "b" ? playerTrackB : playerTrack)?.key ?? "";
+  const keySyncTarget = (deck: DeckId, key: string | undefined): number | null =>
+    // Two decks only: one deck has no master, and no button to turn it off.
+    twoDecks && keySynced[deck] && deck !== syncMaster && key ? keySyncShift(key, masterKey, keyShift[syncMaster]) : null;
   // Related Tracks relate to the track on Player 1, as rekordbox's do.
   const relatedTo = playerTrack?.id ?? null;
   const spec: ViewSpec = useMemo(() => {
@@ -3050,13 +3070,14 @@ function AppBody() {
       {deckCount(layout) > 0 ? (
         <div
           className={styles.decks}
-          data-mixer={deckCount(layout) > 1 ? "" : undefined}
+          data-mixer={layout === "two" ? "" : undefined}
+          data-performance={layout === "performance" ? "" : undefined}
         >
           {/* One transport column for the pair, as rekordbox draws it: deck A
               down from the top, deck B up from the bottom, and the mixer strip
               beside it. Each deck still owns its own transport — it is
               portalled into the half of the column that belongs to it. */}
-          {deckCount(layout) > 1 ? (
+          {layout === "two" ? (
             <div className={styles.deckRail}>
               <div className={styles.transportSlot} ref={setTransportA} />
               {/* DUAL CONTROL, on the centre line where the capture has it:
@@ -3079,7 +3100,7 @@ function AppBody() {
           {/* Only with two decks. The one-player layout has no mixer and no
               crossfader, which is what rekordbox does — and what keeps a deck
               nobody has touched a fader for playing at the level of its file. */}
-          {deckCount(layout) > 1 ? <MixerStrip /> : null}
+          {layout === "two" ? <MixerStrip /> : layout === "performance" ? <MixerStrip performance /> : null}
           <Player
             track={playerTrack}
             drawing={playerTrack !== null && drawingIds.has(playerTrack.id)}
@@ -3095,8 +3116,10 @@ function AppBody() {
             onLoadSelected={loadSelectedInto.a}
             onSkipTrack={skipTrackA}
             selectedTrackId={selectedRow?.id ?? null}
-            transportSlot={deckCount(layout) > 1 ? transportA : null}
-            dual={deckCount(layout) > 1}
+            transportSlot={layout === "two" ? transportA : null}
+            dual={layout === "two"}
+            sideBySide={layout === "performance"}
+            detailSlot={detailA}
             publishZoom={deckCount(layout) > 1 ? publishZoom.a : undefined}
             bars={deckCount(layout) > 1 && dual ? dualBars : waveformZoom.a}
             onBars={deckCount(layout) > 1 && dual ? setLinkedZoom : setZoomA}
@@ -3112,6 +3135,9 @@ function AppBody() {
             publishGridFollow={publishGridFollow.a}
             onGridNudge={gridNudged.a}
             onKeyShift={reportKeyShift.a}
+            keySynced={keySynced.a && syncMaster !== "a"}
+            onKeySyncToggle={deckCount(layout) > 1 ? toggleKeySync.a : undefined}
+            keySyncShift={keySyncTarget("a", playerTrack?.key)}
             readOnly={readOnly}
           />
           {deckCount(layout) > 1 ? (
@@ -3129,9 +3155,11 @@ function AppBody() {
               dragging={draggedTracks !== null}
               onDropTrack={loadDroppedInto.b}
               onLoadSelected={loadSelectedInto.b}
-              transportSlot={transportB}
-              flipped
-              dual
+              transportSlot={layout === "two" ? transportB : null}
+              flipped={layout === "two"}
+              dual={layout === "two"}
+              sideBySide={layout === "performance"}
+              detailSlot={detailB}
               publishZoom={publishZoom.b}
               bars={dual ? dualBars : waveformZoom.b}
               onBars={dual ? setLinkedZoom : setZoomB}
@@ -3147,14 +3175,25 @@ function AppBody() {
               publishGridFollow={publishGridFollow.b}
               onGridNudge={gridNudged.b}
               onKeyShift={reportKeyShift.b}
+              keySynced={keySynced.b && syncMaster !== "b"}
+              onKeySyncToggle={toggleKeySync.b}
+              keySyncShift={keySyncTarget("b", playerTrackB?.key)}
               readOnly={readOnly}
             />
           ) : null}
           {/* Over the line between the decks, where the capture floats it.
               After the decks, so it paints over both. */}
-          {deckCount(layout) > 1 ? (
+          {layout === "two" ? (
             <div className={styles.zoomSlot}>
               <DualZoom onZoom={zoomBoth} />
+            </div>
+          ) : null}
+          {/* PERFORMANCE: both detail waveforms across the top, deck A's
+              over deck B's, as rekordbox stacks them. */}
+          {layout === "performance" ? (
+            <div className={styles.waves}>
+              <div className={styles.waveSlot} ref={setDetailA} />
+              <div className={styles.waveSlot} ref={setDetailB} />
             </div>
           ) : null}
           <div className={styles.playerGutter} aria-hidden />

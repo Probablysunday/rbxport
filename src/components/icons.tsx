@@ -222,6 +222,13 @@ export const LayoutTwoIcon = (props: IconProps) => (
   </svg>
 );
 
+/** PERFORMANCE: the waveforms across the top, two decks and the mixer under them. */
+export const LayoutPerformanceIcon = (props: IconProps) => (
+  <svg viewBox="0 0 16 16" aria-hidden focusable="false" {...props}>
+    <rect x="1.5" y="2.5" width="13" height="4" fill="none" stroke="currentColor" strokeWidth="1.4"/><rect x="1.5" y="8.5" width="5" height="5" fill="none" stroke="currentColor" strokeWidth="1.4"/><rect x="9.5" y="8.5" width="5" height="5" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+  </svg>
+);
+
 export const LinkOnIcon = (props: IconProps) => (
   <svg viewBox="0 0 28 28" aria-hidden focusable="false" {...props}>
     <circle cx="6.5" cy="21.5" r="3.4" fill="currentColor"/> <path fill="none" stroke="currentColor" strokeWidth="4.2" strokeLinecap="butt" d="M6.5 11.5a10 10 0 0 1 10 10"/> <path fill="none" stroke="currentColor" strokeWidth="4.2" strokeLinecap="butt" d="M6.5 3.5a18 18 0 0 1 18 18"/>

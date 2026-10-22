@@ -135,3 +135,111 @@
   margin-top: calc(var(--s-mixer-fader-handle-h) / -2);
   background: var(--c-outline);
 }
+
+/* ---------------------------------------------------------- PERFORMANCE */
+
+/* The mixer between the decks: two channels side by side, each TRIM, the
+   three bands, FILTER and its fader down the column, then EQ/ISO, the
+   crossfader and its curve across both. */
+.perf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--c-panel);
+  color: var(--c-text);
+  font-size: var(--f-size-dual-button);
+  user-select: none;
+  min-height: 0;
+}
+
+.perfChannels {
+  display: flex;
+  gap: 14px;
+  min-height: 0;
+}
+
+/* The knobs down the column and the channel fader beside them; deck B's
+   mirrors deck A's, so both faders sit at the middle like a mixer's. */
+.perfChannel { display: flex; gap: 6px; min-height: 0; }
+.perfChannel:last-child { flex-direction: row-reverse; }
+.perfKnobs { display: flex; flex-direction: column; gap: 2px; }
+.perfRow { display: flex; gap: 6px; }
+
+.perfKnob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 30px;
+}
+.perfKnob .knob {
+  cursor: ns-resize;
+  background: var(--c-black);
+  border-color: var(--c-raised);
+}
+.perfKnob .caption { font-size: 7.5px; color: var(--c-mixer-ab); }
+
+/* A band's name is its kill: greyed like a caption, lit when killed. */
+.perfKill {
+  padding: 0 2px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: var(--c-mixer-ab);
+  font: inherit;
+  font-size: 7.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.perfKill[data-killed] { background: var(--c-accent); color: var(--c-icon-on); }
+.perfKill:focus-visible { outline: 1px solid var(--c-accent); }
+
+.perfFader {
+  position: relative;
+  width: 70px;
+  height: 18px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.perfFader[data-vertical] { width: 18px; height: 100%; min-height: 60px; cursor: ns-resize; }
+.perfFader:focus-visible { outline: 1px solid var(--c-accent); }
+.perfFader::before {
+  content: "";
+  position: absolute;
+  background: var(--c-raised);
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+}
+.perfFader[data-vertical]::before { left: 50%; right: auto; top: 0; bottom: 0; width: 2px; height: auto; margin: 0 0 0 -1px; }
+.perfHandle {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 6px;
+  margin-left: -3px;
+  border-radius: 1px;
+  background: var(--c-outline);
+}
+.perfFader[data-vertical] .perfHandle { top: auto; left: 2px; right: 2px; width: auto; height: 6px; margin: 0 0 -3px; }
+
+.perfCross { display: flex; align-items: center; gap: 4px; }
+
+.perfSwitches { display: flex; gap: 1px; }
+.perfSwitch {
+  padding: 2px 5px;
+  border: 0;
+  background: var(--c-mixer-band);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 7.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.perfSwitch[data-on] { background: var(--c-accent); color: var(--c-icon-on); }
+.perfSwitch:focus-visible { outline: 1px solid var(--c-accent); }

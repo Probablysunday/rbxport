@@ -40,6 +40,11 @@ export interface DualHeadProps {
   onBeatSync: () => void;
   /** BEAT SYNC is lit: the deck is following the master's tempo. */
   synced: boolean;
+  /** KEY SYNC: hold this deck in a key that mixes with the master's. */
+  onKeySync: (() => void) | undefined;
+  keySynced: boolean;
+  /** The deck has a key and the engine can shift it. */
+  canKeySync: boolean;
   isMaster: boolean;
   onMaster: (() => void) | undefined;
 }
@@ -53,7 +58,7 @@ export interface DualHeadProps {
  * it there, and the row itself is the same either way up.
  */
 export const DualHead = memo(function DualHead({
-  track, positionSource, total, sleeve, keyControl, bpmX100, baseBpmX100, onBpmChange, onBeatSync, synced, isMaster, onMaster,
+  track, positionSource, total, sleeve, keyControl, bpmX100, baseBpmX100, onBpmChange, onBeatSync, synced, onKeySync, keySynced, canKeySync, isMaster, onMaster,
 }: DualHeadProps) {
   const tip = useTooltip();
   return (
@@ -81,18 +86,24 @@ export const DualHead = memo(function DualHead({
             </>
           ) : null}
         </div>
-        {/* KEY SYNC shifts the key to the master's — "Enable/Disable Key
-            Sync." in german.lang. There is no key shifting in the engine, so
-            it is drawn and inert, with the reason. The capture lights deck A's
-            BEAT SYNC blue: in rekordbox it is a toggle that keeps the deck
-            following the master. Here it is a press that matches the deck
-            once, so it is never lit — a lit toggle that is not one would lie. */}
+        {/* KEY SYNC shifts the key to one that mixes with the master's —
+            "Enable/Disable Key Sync." in german.lang — and is a toggle, as
+            BEAT SYNC is: lit, the deck re-matches as the master's key moves. */}
         <button
           type="button"
           className={styles.syncButton}
           aria-label="Key sync"
-          disabled
-          title={tip("Key sync needs a key shifter, which the engine does not have yet.")}
+          aria-pressed={keySynced}
+          data-on={keySynced ? "" : undefined}
+          disabled={!onKeySync || !canKeySync || isMaster}
+          title={tip(
+            isMaster
+              ? "This deck is the master; key sync the other one to it."
+              : keySynced
+                ? "Holding a key that mixes with the master's; press to stop."
+                : "Shift this deck at most two semitones into a key that mixes with the master's.",
+          )}
+          onClick={onKeySync}
         >
           KEY SYNC
         </button>

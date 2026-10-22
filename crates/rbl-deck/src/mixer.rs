@@ -1,4 +1,5 @@
-//! The channel strip: trim, three bands, and the crossfader.
+//! The channel strip: trim, three bands, the filter, the channel fader, and
+//! the crossfader.
 //!
 //! One of these per deck, run inside the audio callback. Everything the
 //! interface can move is an atomic — the callback must never wait for a knob —
@@ -101,6 +102,11 @@ pub struct ChannelSettings {
     bands: [AtomicU32; 3],
     /// Which of them are killed.
     kills: [AtomicBool; 3],
+    /// The channel fader, 0 to 1. Up by default, so a deck plays at its level.
+    volume: AtomicU32,
+    /// The COLOR FX filter knob, 0 to 1: low-pass left of centre, high-pass
+    /// right of it, nothing at centre.
+    filter: AtomicU32,
 }
 
 impl Default for ChannelSettings {
@@ -113,6 +119,8 @@ impl Default for ChannelSettings {
                 AtomicU32::new(0.5_f32.to_bits()),
             ],
             kills: [AtomicBool::new(false), AtomicBool::new(false), AtomicBool::new(false)],
+            volume: AtomicU32::new(1.0_f32.to_bits()),
+            filter: AtomicU32::new(0.5_f32.to_bits()),
         }
     }
 }
@@ -168,6 +176,24 @@ impl ChannelSettings {
         self.kills.get(band.index()).is_some_and(|slot| slot.load(Ordering::Relaxed))
     }
 
+    pub fn set_volume(&self, position: f32) {
+        let safe = if position.is_finite() { position.clamp(0.0, 1.0) } else { 1.0 };
+        self.volume.store(safe.to_bits(), Ordering::Relaxed);
+    }
+
+    pub fn volume(&self) -> f32 {
+        f32::from_bits(self.volume.load(Ordering::Relaxed))
+    }
+
+    pub fn set_filter(&self, position: f32) {
+        let safe = if position.is_finite() { position.clamp(0.0, 1.0) } else { 0.5 };
+        self.filter.store(safe.to_bits(), Ordering::Relaxed);
+    }
+
+    pub fn filter(&self) -> f32 {
+        f32::from_bits(self.filter.load(Ordering::Relaxed))
+    }
+
     /// The gain each band is asking for, high to low.
     fn wanted(&self, curve: Curve) -> [f32; 3] {
         let mut out = [1.0_f32; 3];
@@ -194,17 +220,25 @@ pub enum Fade {
     /// Constant power: −3 dB in the middle, so two tracks playing together do
     /// not jump as the fader passes.
     Power,
+    /// Scratch: both decks whole until the last few percent of travel, where
+    /// the far one cuts out.
+    Cut,
 }
 
 impl Fade {
     fn from_wire(value: u32) -> Self {
-        if value == 1 { Self::Power } else { Self::Full }
+        match value {
+            1 => Self::Power,
+            2 => Self::Cut,
+            _ => Self::Full,
+        }
     }
 
     fn to_wire(self) -> u32 {
         match self {
             Self::Full => 0,
             Self::Power => 1,
+            Self::Cut => 2,
         }
     }
 
@@ -217,9 +251,13 @@ impl Fade {
                 let angle = at * std::f32::consts::FRAC_PI_2;
                 (angle.cos(), angle.sin())
             }
+            Self::Cut => (((1.0 - at) / CUT_EDGE).min(1.0), (at / CUT_EDGE).min(1.0)),
         }
     }
 }
+
+/// How much of the crossfader's travel the `Cut` curve fades over, at each end.
+const CUT_EDGE: f32 = 0.03;
 
 /// The mixer's own settings: the curve both channels use, and the crossfader.
 #[derive(Debug)]
@@ -334,6 +372,12 @@ impl Biquad {
         }
     }
 
+    /// New coefficients, the same state: a moving cutoff must not restart the
+    /// filter, or every retune would click.
+    fn retune(&mut self, to: Self) {
+        *self = Self { z1: self.z1, z2: self.z2, ..to };
+    }
+
     fn run(&mut self, x: f32) -> f32 {
         let y = self.b0 * x + self.z1;
         self.z1 = flush(self.b1 * x - self.a1 * y + self.z2);
@@ -404,19 +448,98 @@ impl Bands {
     }
 }
 
+/// Where the filter knob stops being centre, in knob travel either side of it.
+const FILTER_DEAD: f32 = 0.02;
+
+/// How much travel past the dead zone the filter takes to fade fully in.
+///
+/// Fading the filtered signal in over the dry one, rather than switching to
+/// it, is what keeps the knob silent as it leaves centre: the filter it fades
+/// in is wide open there, so it is the track already.
+const FILTER_FADE_IN: f32 = 0.08;
+
+/// The ends of the sweeps, in Hz: the low-pass closes down to the first, the
+/// high-pass opens up to the second.
+const FILTER_LOW_HZ: f32 = 60.0;
+const FILTER_HIGH_HZ: f32 = 8_000.0;
+/// Where each sweep starts, out of the way of the music.
+const FILTER_OPEN_LP_HZ: f32 = 20_000.0;
+const FILTER_OPEN_HP_HZ: f32 = 20.0;
+
+/// How far the smoothed knob moves before the filters are retuned. They are
+/// retuned per frame while it moves — a coarser step is a staircase in the
+/// cutoff and clicks on a fast throw — and not at all while it is still.
+const FILTER_RETUNE_STEP: f32 = 1e-5;
+
+/// How far into its sweep the filter knob is, 0 at centre and 1 at either end.
+fn filter_depth(position: f32) -> f32 {
+    (((position - 0.5).abs() - FILTER_DEAD) / (0.5 - FILTER_DEAD)).clamp(0.0, 1.0)
+}
+
+/// How much of the filtered signal is mixed in over the dry one.
+fn filter_wet(position: f32) -> f32 {
+    (filter_depth(position) / FILTER_FADE_IN).min(1.0)
+}
+
+/// The low-pass and high-pass corners at one knob position, in Hz. The side
+/// the knob is not on sits wide open.
+fn filter_at(position: f32) -> (f32, f32) {
+    let depth = filter_depth(position);
+    // Exponential in the knob, which is how a cutoff sweep sounds even.
+    if position > 0.5 {
+        (FILTER_OPEN_LP_HZ, FILTER_OPEN_HP_HZ * (FILTER_HIGH_HZ / FILTER_OPEN_HP_HZ).powf(depth))
+    } else {
+        (FILTER_OPEN_LP_HZ * (FILTER_LOW_HZ / FILTER_OPEN_LP_HZ).powf(depth), FILTER_OPEN_HP_HZ)
+    }
+}
+
+/// A four-pole sweep, one per side of the stereo.
+#[derive(Debug, Clone, Copy, Default)]
+struct Sweep {
+    stages: [Biquad; 2],
+}
+
+impl Sweep {
+    fn retune(&mut self, hz: f32, rate: f32, high: bool) {
+        let to = Biquad::butterworth(hz, rate, high);
+        for stage in &mut self.stages {
+            stage.retune(to);
+        }
+    }
+
+    fn run(&mut self, x: f32) -> f32 {
+        let mut y = x;
+        for stage in &mut self.stages {
+            y = stage.run(y);
+        }
+        y
+    }
+}
+
 /// One deck's strip, as the callback owns it.
 #[derive(Debug)]
 pub struct Channel {
+    rate: f32,
     bands: [Bands; 2],
     gains: [Smoothed; 3],
     trim: Smoothed,
     fader: Smoothed,
+    volume: Smoothed,
+    filter: Smoothed,
+    /// A low-pass and a high-pass per side, both always running. Never one
+    /// filter switched between the two: its state from one mode rings as a
+    /// crack in the other when the knob is thrown across centre.
+    lows: [Sweep; 2],
+    highs: [Sweep; 2],
+    /// The knob position the filters were last tuned for; NaN before the first.
+    tuned_at: f32,
 }
 
 impl Channel {
     pub fn new(rate: u32) -> Self {
         let bands = Bands::new(rate as f32);
         Self {
+            rate: rate as f32,
             bands: [bands, bands],
             gains: [
                 Smoothed::new(1.0, rate),
@@ -425,6 +548,11 @@ impl Channel {
             ],
             trim: Smoothed::new(1.0, rate),
             fader: Smoothed::new(1.0, rate),
+            volume: Smoothed::new(1.0, rate),
+            filter: Smoothed::new(0.5, rate),
+            lows: [Sweep::default(), Sweep::default()],
+            highs: [Sweep::default(), Sweep::default()],
+            tuned_at: f32::NAN,
         }
     }
 
@@ -435,9 +563,26 @@ impl Channel {
     pub fn process(&mut self, out: &mut [f32], settings: &ChannelSettings, curve: Curve, fader: f32) {
         let wanted = settings.wanted(curve);
         let trim = settings.trim();
+        // The channel fader's curve: −6 dB at about 70% of its travel, which
+        // is near enough a DJM's default to blend on.
+        let volume = settings.volume() * settings.volume();
+        let filter = settings.filter();
         for frame in out.chunks_exact_mut(2) {
             let trim = self.trim.step(trim);
-            let fader = self.fader.step(fader);
+            let fader = self.fader.step(fader) * self.volume.step(volume);
+            let position = self.filter.step(filter);
+            if self.tuned_at.is_nan() || (position - self.tuned_at).abs() >= FILTER_RETUNE_STEP {
+                let (low_hz, high_hz) = filter_at(position);
+                for sweep in &mut self.lows {
+                    sweep.retune(low_hz, self.rate, false);
+                }
+                for sweep in &mut self.highs {
+                    sweep.retune(high_hz, self.rate, true);
+                }
+                self.tuned_at = position;
+            }
+            let wet = filter_wet(position);
+            let (wet_low, wet_high) = if position > 0.5 { (0.0, wet) } else { (wet, 0.0) };
             let mut gains = [0.0_f32; 3];
             for (slot, (smoothed, target)) in
                 gains.iter_mut().zip(self.gains.iter_mut().zip(wanted.iter()))
@@ -450,6 +595,12 @@ impl Channel {
                 let mut sum = 0.0;
                 for (band, gain) in split.iter().zip(gains.iter()) {
                     sum += band * gain;
+                }
+                // Both run even when dry, so their state is warm when the
+                // knob reaches them.
+                if let (Some(low), Some(high)) = (self.lows.get_mut(side), self.highs.get_mut(side)) {
+                    let (lowered, raised) = (low.run(sum), high.run(sum));
+                    sum += (lowered - sum) * wet_low + (raised - sum) * wet_high;
                 }
                 *sample = sum * fader;
             }
@@ -580,6 +731,111 @@ mod tests {
             assert!(mixer.fader().0.abs() < 1e-6, "{fade:?} should silence A");
             assert_eq!(mixer.fader().1, 1.0, "{fade:?} should leave B whole");
         }
+    }
+
+    #[test]
+    fn the_filter_at_centre_is_the_track() {
+        for hz in [60.0, 1_000.0, 9_000.0] {
+            let settings = ChannelSettings::default();
+            let mut channel = Channel::new(RATE);
+            let peak = run(&mut channel, &settings, Curve::Eq, hz);
+            assert!((peak - 1.0).abs() < 0.005, "at {hz} Hz the centred filter passed {peak}");
+        }
+    }
+
+    #[test]
+    fn the_filter_left_takes_the_top_and_right_takes_the_bottom() {
+        let settings = ChannelSettings::default();
+        settings.set_filter(0.1);
+        let top = run(&mut Channel::new(RATE), &settings, Curve::Eq, 8_000.0);
+        let bass = run(&mut Channel::new(RATE), &settings, Curve::Eq, 60.0);
+        assert!(top < 0.01, "a low-pass left the top at {top}");
+        assert!(bass > 0.5, "a low-pass took the bass to {bass}");
+
+        settings.set_filter(0.9);
+        let top = run(&mut Channel::new(RATE), &settings, Curve::Eq, 8_000.0);
+        let bass = run(&mut Channel::new(RATE), &settings, Curve::Eq, 60.0);
+        assert!(bass < 0.01, "a high-pass left the bass at {bass}");
+        assert!(top > 0.5, "a high-pass took the top to {top}");
+    }
+
+    #[test]
+    fn a_filter_swept_across_centre_does_not_click() {
+        // A full sweep from low-pass to high-pass over half a second: no
+        // frame-to-frame jump bigger than a full-scale 1 kHz sine makes itself.
+        let settings = ChannelSettings::default();
+        settings.set_filter(0.2);
+        let mut channel = Channel::new(RATE);
+        // Settled at the start of the sweep, so its first buffer is not a
+        // 10 ms dive from open to closed.
+        channel.process(&mut tone(1_000.0, RATE as usize / 10), &settings, Curve::Eq, 1.0);
+        let mut audio = tone(1_000.0, RATE as usize / 2);
+        let mut last = 0.0_f32;
+        let mut worst = 0.0_f32;
+        let steps = 100;
+        // Whole frames, so a chunk never starts on a right-hand sample.
+        let per = audio.len() / steps / 2 * 2;
+        for (i, chunk) in audio.chunks_mut(per).enumerate() {
+            settings.set_filter(0.2 + 0.6 * i as f32 / steps as f32);
+            channel.process(chunk, &settings, Curve::Eq, 1.0);
+            for frame in chunk.chunks_exact(2) {
+                let left = frame.first().copied().unwrap_or(0.0);
+                worst = worst.max((left - last).abs());
+                last = left;
+            }
+        }
+        let sine_step = 2.0 * (std::f32::consts::PI * 1_000.0 / RATE as f32).sin();
+        assert!(worst <= sine_step * 1.05, "the sweep jumped by {worst}, a sine steps {sine_step}");
+    }
+
+    #[test]
+    fn a_filter_flicked_from_low_pass_to_high_pass_does_not_click() {
+        // A hand throwing the knob end to end in one buffer, on bass: the
+        // low-pass passes it and the high-pass takes it away, and the change
+        // between has to be a fade rather than a crack.
+        let settings = ChannelSettings::default();
+        settings.set_filter(0.1);
+        let mut channel = Channel::new(RATE);
+        let hz = 50.0;
+        let mut audio = tone(hz, RATE as usize / 2);
+        let (settle, flick) = audio.split_at_mut(RATE as usize / 5 * 2);
+        channel.process(settle, &settings, Curve::Eq, 1.0);
+        let mut last = settle.get(settle.len() - 2).copied().unwrap_or(0.0);
+        settings.set_filter(0.9);
+        channel.process(flick, &settings, Curve::Eq, 1.0);
+        let mut worst = 0.0_f32;
+        for frame in flick.chunks_exact(2) {
+            let left = frame.first().copied().unwrap_or(0.0);
+            worst = worst.max((left - last).abs());
+            last = left;
+        }
+        // A click is a step only high frequencies make. Sweeping a filter
+        // through the bass is allowed to move it as fast as a 250 Hz tone
+        // would; the filter that switched modes jumped thirty times that.
+        let bass_step = 2.0 * (std::f32::consts::PI * 250.0 / RATE as f32).sin();
+        assert!(worst <= bass_step, "the flick jumped by {worst}, a 250 Hz sine steps {bass_step}");
+    }
+
+    #[test]
+    fn the_channel_fader_down_is_silence_and_up_is_unity() {
+        let settings = ChannelSettings::default();
+        let up = run(&mut Channel::new(RATE), &settings, Curve::Eq, 1_000.0);
+        assert!((up - 1.0).abs() < 0.005, "a fader up passed {up}");
+        settings.set_volume(0.0);
+        let down = run(&mut Channel::new(RATE), &settings, Curve::Eq, 1_000.0);
+        assert_eq!(down, 0.0);
+    }
+
+    #[test]
+    fn the_cut_curve_is_both_decks_whole_until_the_edge() {
+        let mixer = MixerSettings::default();
+        mixer.set_fade(Fade::Cut);
+        for at in [0.05_f32, 0.5, 0.95] {
+            mixer.set_crossfade(at);
+            assert_eq!(mixer.fader(), (1.0, 1.0), "at {at}");
+        }
+        mixer.set_crossfade(1.0);
+        assert!(mixer.fader().0.abs() < 1e-6);
     }
 
     #[test]

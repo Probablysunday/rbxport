@@ -793,6 +793,12 @@ export interface Backend {
   setCrossfade(position: number): Promise<void>;
   /** EQ or ISOLATOR — the bottom of each band's travel, and nothing else. */
   setEqCurve(isolator: boolean): Promise<void>;
+  /** The channel fader: 0 is down, 1 is up. Up unless moved. */
+  setChannelVolume(deck: DeckId, position: number): Promise<void>;
+  /** COLOR FX FILTER: 0 low-pass closed, 0.5 off, 1 high-pass closed. */
+  setChannelFilter(deck: DeckId, position: number): Promise<void>;
+  /** The crossfader's shape: unity through the middle, constant power, or a scratch cut. */
+  setCrossfadeCurve(curve: CrossfadeCurve): Promise<void>;
   /** Both decks now, to anchor the interface when it starts. */
   deckState(): Promise<Tick>;
   /**
@@ -1205,6 +1211,7 @@ export interface Limiter {
 
 /** The three bands of a channel strip, high to low as the strip is drawn. */
 export type EqBand = "high" | "mid" | "low";
+export type CrossfadeCurve = "full" | "power" | "cut";
 
 export interface DeckTick {
   /** The engine's frame counter, in device-rate frames. */

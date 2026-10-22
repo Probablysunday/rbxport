@@ -113,6 +113,7 @@ import { type DeckLoopRange, useHotCues } from "./useHotCues";
 import { useCueWriter } from "./useCueWriter";
 import { CueColorMenu } from "./CueColorMenu";
 import styles from "./Player.module.css";
+import { toCamelot } from "@/lib/camelot";
 
 export interface PlayerProps {
   /** The row the browser has selected, or `null` when nothing is. */
@@ -185,6 +186,14 @@ export interface PlayerProps {
    */
   dual?: boolean;
   /**
+   * rekordbox's PERFORMANCE 2-deck arrangement: the decks side by side with
+   * the mixer between them, CUE and PLAY in the title row, no cue list, and
+   * the detail waveform drawn in `detailSlot`, where the shell stacks both
+   * decks' across the top.
+   */
+  sideBySide?: boolean;
+  detailSlot?: HTMLElement | null;
+  /**
    * The zoom, when the shell draws the cluster.
    *
    * The two-deck layout has one zoom cluster for the pair, over the line
@@ -234,6 +243,14 @@ export interface PlayerProps {
   onPlayingBpm?: ((bpmX100: number | null) => void) | undefined;
   /** This deck's key shift in semitones, for the shell's Traffic Light. */
   onKeyShift?: ((semitones: number) => void) | undefined;
+  /** KEY SYNC held on, which the shell holds as it holds BEAT SYNC. */
+  keySynced?: boolean;
+  onKeySyncToggle?: (() => void) | undefined;
+  /**
+   * The key shift KEY SYNC wants on this deck, or null when it is not on or
+   * either key is unknown. The deck takes it whenever it changes.
+   */
+  keySyncShift?: number | null;
   /**
    * A grid shift on this deck, in milliseconds, for the shell to hand to the
    * other deck: a deck synced to this one moves with it. `publishGridFollow`
@@ -853,10 +870,10 @@ export const Player = memo(function Player({
   track, onEject, onError, onAnalyse, onDropTrack, onLoadSelected, onSkipTrack, selectedTrackId = null,
   onExportTrack, devices = [], onExportLoop,
   dragging = false, deck = "a",
-  simple = false, transportSlot, flipped = false, dual = false, publishZoom,
+  simple = false, transportSlot, flipped = false, dual = false, sideBySide = false, detailSlot, publishZoom,
   bars: linkedBars, onBars, jumpSize: linkedJump, onJumpSize,
   publishSync, peerSync, isMaster = false, onMaster, synced = false, onSyncToggle,
-  leaderBpmX100 = null, onPlayingBpm, onKeyShift, onGridNudge, publishGridFollow, readOnly = false,
+  leaderBpmX100 = null, onPlayingBpm, onKeyShift, keySynced = false, onKeySyncToggle, keySyncShift = null, onGridNudge, publishGridFollow, readOnly = false,
   drawing = false,
 }: PlayerProps) {
   const playback = usePlayback(track?.id ?? null, deck, false);
@@ -1210,11 +1227,15 @@ export const Player = memo(function Player({
    * — what matters is that the pointer went down somewhere that is not here.
    */
   const shell = useRef<HTMLElement>(null);
+  const detailPortal = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const elsewhere = (event: PointerEvent) => {
       const box = shell.current;
       if (!box) return;
-      setArmed(box.contains(event.target as Node));
+      const target = event.target as Node;
+      // The PERFORMANCE layout draws the detail outside the deck, but it is
+      // still this deck's waveform.
+      setArmed(box.contains(target) || (detailPortal.current?.contains(target) ?? false));
     };
     document.addEventListener("pointerdown", elsewhere, true);
     return () => document.removeEventListener("pointerdown", elsewhere, true);
@@ -1884,6 +1905,19 @@ export const Player = memo(function Player({
     onKeyShift?.(keyShift);
   }, [onKeyShift, keyShift]);
 
+  // KEY SYNC: hold the shift the shell asks for, re-taken as the master's key moves.
+  const canShiftKey = !playback.idle && playback.shiftsKey;
+  useEffect(() => {
+    if (keySyncShift === null || !canShiftKey || keySyncShift === playback.keyShift) return;
+    playback.setKeyShift(keySyncShift);
+  }, [keySyncShift, canShiftKey, playback]);
+
+  /** A key moved by hand is a key no longer synced, as on a CDJ. */
+  const shiftKeyByHand = useCallback((semitones: number) => {
+    if (keySynced) onKeySyncToggle?.();
+    playback.setKeyShift(semitones);
+  }, [keySynced, onKeySyncToggle, playback]);
+
   /** Match this deck to the other one: its tempo, then its bar. */
   const matchLeader = useCallback(() => {
     const leader = peerSync?.();
@@ -2406,132 +2440,8 @@ export const Player = memo(function Player({
           </div>
   );
 
-  return (
-    <section
-      ref={shell}
-      className={styles.player}
-      aria-label={deck === "b" ? "Preview player B" : "Preview player"}
-      data-armed={armed ? "" : undefined}
-      data-empty={track ? undefined : ""}
-      // The transport is drawn elsewhere, so the deck is two columns wide
-      // rather than three.
-      data-shared={transportSlot ? "" : undefined}
-      // Deck B, which reads bottom-up so the two decks' waveforms meet at the
-      // line between them.
-      data-flipped={flipped || undefined}
-      // The two-deck body, whose rows are DualDeck's.
-      data-dual={dual || undefined}
-      data-tempo-slider={viewPrefs.tempoSlider || undefined}
-      data-droppable={takesDrop || undefined}
-      onDragOver={dragOver}
-      onDrop={drop}
-    >
-      {transportSlot ? createPortal(transport, transportSlot) : transport}
-
-      <div className={styles.main}>
-        {dual ? (
-          <DualHead
-            track={track}
-            positionSource={playback}
-            total={total}
-            sleeve={sleeve}
-            keyControl={<KeyShift musicalKey={track ? formatKey(track.key, viewPrefs.keyDisplay) : ""}
-              shift={playback.keyShift} disabled={playback.idle || !playback.shiftsKey} onChange={playback.setKeyShift} />}
-            bpmX100={Math.round(bpmX100 * playback.tempo)}
-            baseBpmX100={bpmX100}
-            onBpmChange={setDisplayedBpm}
-            onBeatSync={beatSync}
-            synced={synced}
-            isMaster={isMaster}
-            onMaster={onMaster}
-          />
-        ) : (
-        <div className={styles.head}>
-          <span className={styles.title} data-testid="player-title">
-            {track ? track.title : ""}
-          </span>
-          {track ? (
-            <>
-              <span className={styles.artist}>{track.artist}</span>
-              <TimeReadouts source={playback} total={total} classes={styles} />
-              <div className={styles.keyControl}>
-                <KeyShift musicalKey={formatKey(track.key, viewPrefs.keyDisplay)} shift={playback.keyShift}
-                  disabled={playback.idle || !playback.shiftsKey} onChange={playback.setKeyShift} />
-              </div>
-              <TempoToggle className={styles.readout} bpmX100={Math.round(bpmX100 * playback.tempo)} baseBpmX100={bpmX100} onBpmChange={setDisplayedBpm} />
-            </>
-          ) : null}
-          {/* Sync belongs to the two-deck layouts and to nothing else: one
-              deck has nothing to sync to and nothing to be master of. */}
-          {peerSync ? (
-            <div className={styles.sync} role="group" aria-label="Sync">
-              <button
-                type="button"
-                className={styles.chip}
-                aria-label="Beat sync"
-                aria-pressed={synced}
-                data-on={synced ? "" : undefined}
-                disabled={!track || isMaster}
-                title={tip(
-                  isMaster
-                    ? "This deck is the master; sync the other one to it."
-                    : synced
-                      ? "Following the master's tempo; press to stop."
-                      : "Match this deck to the master's tempo and bar, and keep its tempo.",
-                )}
-                onClick={beatSync}
-              >
-                BEAT SYNC
-              </button>
-              <button
-                type="button"
-                className={styles.chip}
-                aria-label="Sync master"
-                aria-pressed={isMaster}
-                data-on={isMaster ? "" : undefined}
-                onClick={onMaster}
-              >
-                MASTER
-              </button>
-            </div>
-          ) : null}
-        </div>
-        )}
-
-        {/* The one-deck overview sits beside the sleeve; the two-deck one
-            runs the deck's width, its sleeve up in the title row. */}
-        <div className={styles.overviewRow}>
-          {dual ? null : sleeve}
-          {overviewStack}
-        </div>
-
-        {viewPrefs.phraseFull ? (
-          <PhraseBar
-            phrases={phrases}
-            totalMs={total * 1000}
-            beatMs={beatMs}
-            labels={viewPrefs.phraseLabels}
-          />
-        ) : (
-          // Keep the phrase row's grid track: the rows are placed by
-          // auto-flow, so omitting it shifts the detail into a fixed-height track.
-          <div className={styles.phrase} data-testid="player-phrase-off" aria-hidden />
-        )}
-
-        {/* The control row comes before the detail in the two-deck body, as
-            the capture has it: the detail is the last row, and takes what is
-            left. */}
-        {dual ? (
-          <DualControls
-            gridEditor={gridEditor}
-            readOnly={readOnly}
-            memory={memory}
-            quantize={quantize}
-            onQuantize={toggleQuantize}
-            loop={dualLoop}
-          />
-        ) : null}
-
+  // The detail waveform: in the deck, or in the PERFORMANCE layout's stack.
+  const detailRow = (
         <div className={styles.detailRow}>
           {/* The two-deck layout's zoom is the shell's, one for the pair. */}
           {dual ? null : (
@@ -2615,6 +2525,175 @@ export const Player = memo(function Player({
             />
           </div>
         </div>
+  );
+
+  return (
+    <section
+      ref={shell}
+      className={styles.player}
+      aria-label={deck === "b" ? "Preview player B" : "Preview player"}
+      data-armed={armed ? "" : undefined}
+      data-empty={track ? undefined : ""}
+      // The transport is drawn elsewhere, so the deck is two columns wide
+      // rather than three.
+      data-shared={transportSlot ? "" : undefined}
+      // Deck B, which reads bottom-up so the two decks' waveforms meet at the
+      // line between them.
+      data-flipped={flipped || undefined}
+      // The two-deck body, whose rows are DualDeck's.
+      data-dual={dual || undefined}
+      data-performance={sideBySide || undefined}
+      data-tempo-slider={viewPrefs.tempoSlider || undefined}
+      data-droppable={takesDrop || undefined}
+      onDragOver={dragOver}
+      onDrop={drop}
+    >
+      {sideBySide ? null : transportSlot ? createPortal(transport, transportSlot) : transport}
+
+      <div className={styles.main}>
+        {dual ? (
+          <DualHead
+            track={track}
+            positionSource={playback}
+            total={total}
+            sleeve={sleeve}
+            keyControl={<KeyShift musicalKey={track ? formatKey(track.key, viewPrefs.keyDisplay) : ""}
+              shift={playback.keyShift} disabled={!canShiftKey} onChange={shiftKeyByHand} />}
+            bpmX100={Math.round(bpmX100 * playback.tempo)}
+            baseBpmX100={bpmX100}
+            onBpmChange={setDisplayedBpm}
+            onBeatSync={beatSync}
+            synced={synced}
+            onKeySync={onKeySyncToggle}
+            keySynced={keySynced}
+            canKeySync={canShiftKey && toCamelot(track?.key ?? "") !== ""}
+            isMaster={isMaster}
+            onMaster={onMaster}
+          />
+        ) : (
+        <div className={styles.head}>
+          {sideBySide ? (
+            <div className={styles.headTransport} role="group" aria-label={deck === "b" ? "Deck B transport" : "Deck A transport"}>
+              {cueButton}
+              {playButton}
+              {sleeve}
+            </div>
+          ) : null}
+          <span className={styles.title} data-testid="player-title">
+            {track ? track.title : ""}
+          </span>
+          {track ? (
+            <>
+              <span className={styles.artist}>{track.artist}</span>
+              <TimeReadouts source={playback} total={total} classes={styles} />
+              <div className={styles.keyControl}>
+                <KeyShift musicalKey={formatKey(track.key, viewPrefs.keyDisplay)} shift={playback.keyShift}
+                  disabled={!canShiftKey} onChange={shiftKeyByHand} />
+              </div>
+              <TempoToggle className={styles.readout} bpmX100={Math.round(bpmX100 * playback.tempo)} baseBpmX100={bpmX100} onBpmChange={setDisplayedBpm} />
+            </>
+          ) : null}
+          {/* Sync belongs to the two-deck layouts and to nothing else: one
+              deck has nothing to sync to and nothing to be master of. */}
+          {peerSync ? (
+            <div className={styles.sync} role="group" aria-label="Sync">
+              {onKeySyncToggle ? (
+                <button
+                  type="button"
+                  className={styles.chip}
+                  aria-label="Key sync"
+                  aria-pressed={keySynced}
+                  data-on={keySynced ? "" : undefined}
+                  disabled={toCamelot(track?.key ?? "") === "" || !canShiftKey || isMaster}
+                  title={tip(
+                    isMaster
+                      ? "This deck is the master; key sync the other one to it."
+                      : keySynced
+                        ? "Holding a key that mixes with the master's; press to stop."
+                        : "Shift this deck at most two semitones into a key that mixes with the master's.",
+                  )}
+                  onClick={onKeySyncToggle}
+                >
+                  KEY SYNC
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.chip}
+                aria-label="Beat sync"
+                aria-pressed={synced}
+                data-on={synced ? "" : undefined}
+                disabled={!track || isMaster}
+                title={tip(
+                  isMaster
+                    ? "This deck is the master; sync the other one to it."
+                    : synced
+                      ? "Following the master's tempo; press to stop."
+                      : "Match this deck to the master's tempo and bar, and keep its tempo.",
+                )}
+                onClick={beatSync}
+              >
+                BEAT SYNC
+              </button>
+              <button
+                type="button"
+                className={styles.chip}
+                aria-label="Sync master"
+                aria-pressed={isMaster}
+                data-on={isMaster ? "" : undefined}
+                onClick={onMaster}
+              >
+                MASTER
+              </button>
+            </div>
+          ) : null}
+        </div>
+        )}
+
+        {/* The one-deck overview sits beside the sleeve; the two-deck one
+            runs the deck's width, its sleeve up in the title row. */}
+        <div className={styles.overviewRow}>
+          {dual || sideBySide ? null : sleeve}
+          {overviewStack}
+        </div>
+
+        {viewPrefs.phraseFull ? (
+          <PhraseBar
+            phrases={phrases}
+            totalMs={total * 1000}
+            beatMs={beatMs}
+            labels={viewPrefs.phraseLabels}
+          />
+        ) : (
+          // Keep the phrase row's grid track: the rows are placed by
+          // auto-flow, so omitting it shifts the detail into a fixed-height track.
+          <div className={styles.phrase} data-testid="player-phrase-off" aria-hidden />
+        )}
+
+        {/* The control row comes before the detail in the two-deck body, as
+            the capture has it: the detail is the last row, and takes what is
+            left. */}
+        {dual ? (
+          <DualControls
+            gridEditor={gridEditor}
+            readOnly={readOnly}
+            memory={memory}
+            quantize={quantize}
+            onQuantize={toggleQuantize}
+            loop={dualLoop}
+          />
+        ) : null}
+
+        {sideBySide
+          ? detailSlot
+            ? createPortal(
+                <div ref={detailPortal} className={styles.detailPortal} data-empty={track ? undefined : ""} data-armed={armed ? "" : undefined}>
+                  {detailRow}
+                </div>,
+                detailSlot,
+              )
+            : null
+          : detailRow}
 
         {dual ? null : (
         <div className={styles.pads}>
@@ -2884,6 +2963,12 @@ export const Player = memo(function Player({
           </div>
           )}
 
+          {sideBySide ? (
+            <div className={styles.padJumps}>
+              {jumps}
+              {beatSize}
+            </div>
+          ) : null}
           <button
             type="button"
             className={styles.chip}

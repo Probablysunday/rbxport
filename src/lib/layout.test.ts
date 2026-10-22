@@ -6,6 +6,7 @@ describe("deckCount", () => {
   it("counts the decks each layout draws", () => {
     expect(deckCount("one")).toBe(1);
     expect(deckCount("two")).toBe(2);
+    expect(deckCount("performance")).toBe(2);
     expect(deckCount("simple")).toBe(1);
     expect(deckCount("browser")).toBe(0);
   });

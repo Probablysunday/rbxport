@@ -104,3 +104,19 @@ export function trafficLightLit(key: string, reference: string, reach: TrafficLi
   const code = toCamelot(key);
   return code !== "" && trafficLightCodes(reference, reach).includes(code);
 }
+
+/** Key shifts KEY SYNC tries, smallest first: rekordbox's fuzzy key sync moves at most two semitones. */
+const KEY_SYNC_SHIFTS = [0, -1, 1, -2, 2];
+
+/**
+ * KEY SYNC: the shift, in semitones from `key`'s own, that puts a deck in a
+ * key that mixes with the master sounding in `masterKey` shifted by
+ * `masterShift`. Mixes means the master's Camelot number or either neighbour,
+ * minor or major — the six keys of Related Key 3 — which every key reaches
+ * within two semitones. Null when either key is not on the wheel.
+ */
+export function keySyncShift(key: string, masterKey: string, masterShift: number): number | null {
+  if (!toCamelot(key) || !toCamelot(masterKey)) return null;
+  const sounding = transposeKey(masterKey, masterShift);
+  return KEY_SYNC_SHIFTS.find((shift) => trafficLightLit(transposeKey(key, shift), sounding, "related3")) ?? null;
+}

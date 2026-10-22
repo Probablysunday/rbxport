@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  compatibleKeys, fromCamelot, normalizeKey, toCamelot, trafficLightCodes, trafficLightLit, transposeKey,
+  compatibleKeys, fromCamelot, keySyncShift, normalizeKey, toCamelot, trafficLightCodes, trafficLightLit, transposeKey,
 } from "./camelot";
 
 describe("camelot", () => {
@@ -82,5 +82,26 @@ describe("a library that stores Camelot codes", () => {
     expect(trafficLightLit("9A", "Am", "related3")).toBe(true);
     expect(trafficLightLit("Em", "8A", "related3")).toBe(true);
     expect(trafficLightLit("7A", "7A", "same")).toBe(true);
+  });
+
+  it("key sync takes the smallest shift into a key that mixes with the master's", () => {
+    // Already compatible: 8A against 8A, 8B and 9A needs nothing.
+    expect(keySyncShift("Am", "Am", 0)).toBe(0);
+    expect(keySyncShift("C", "Am", 0)).toBe(0);
+    expect(keySyncShift("Em", "Am", 0)).toBe(0);
+    // Not compatible as they are: whichever shift is taken, it is at most two
+    // semitones and what it lands on lights against the master.
+    for (const [key, master, masterShift] of [
+      ["Am", "Bm", 0], ["Am", "F#m", 0], ["C", "Ebm", 0], ["Dbm", "G", 0], ["Am", "Am", 3], ["8A", "2B", 0],
+    ] as const) {
+      const shift = keySyncShift(key, master, masterShift);
+      expect(shift, `${key} to ${master}${masterShift}`).not.toBeNull();
+      expect(Math.abs(shift!)).toBeLessThanOrEqual(2);
+      expect(trafficLightLit(transposeKey(key, shift!), transposeKey(master, masterShift), "related3")).toBe(true);
+    }
+    // Every pair on the wheel is reachable within two semitones.
+    const keys = ["Am", "Em", "Bm", "F#m", "Dbm", "Abm", "Ebm", "Bbm", "Fm", "Cm", "Gm", "Dm", "C", "G", "D", "A", "E", "B"];
+    for (const a of keys) for (const b of keys) expect(keySyncShift(a, b, 0)).not.toBeNull();
+    expect(keySyncShift("", "Am", 0)).toBeNull();
   });
 });

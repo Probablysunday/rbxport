@@ -1344,3 +1344,98 @@ button.cueDelete:disabled { color: var(--c-icon-off); }
 .player[data-flipped] .tempoRamp:not(.overviewRamp) {
   bottom: calc(var(--s-beat-marker-top) + var(--s-beat-head-h) + 2px);
 }
+
+/* ---------------------------------------------------------- PERFORMANCE */
+
+/* One column: no transport rail (CUE and PLAY are in the title row) and no
+   cue list, so two decks fit side by side with the mixer between them. */
+.player[data-performance] {
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+}
+.player[data-performance] .side { display: none; }
+.player[data-performance] .main {
+  grid-template-rows:
+    var(--s-perf-head-h)
+    var(--s-player-overview-h)
+    var(--s-player-phrase-h)
+    1fr;
+  row-gap: var(--s-player-margin);
+  margin-bottom: var(--s-player-margin);
+}
+/* The title row on two lines, as rekordbox's PERFORMANCE deck has it: the
+   title and the sync buttons over the artist and the readouts. */
+.player[data-performance] .head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+  grid-template-areas:
+    "tr title sync sync sync sync"
+    "tr artist remaining elapsed key bpm";
+  column-gap: 8px;
+  padding: 0 var(--s-player-inset);
+  font-size: var(--f-size-sm);
+}
+.player[data-performance] .head .title { font-size: var(--f-size-ui); }
+.player[data-performance] .head .remaining,
+.player[data-performance] .head .elapsed,
+.player[data-performance] .head .readout,
+.player[data-performance] .head .keyControl { font-size: var(--f-size-sm); padding-left: 8px; line-height: 1.2; }
+.player[data-performance] .head .readout { padding-right: 0; min-width: 0; }
+.player[data-performance] .headTransport { grid-area: tr; }
+.player[data-performance] .head .title { grid-area: title; align-self: end; }
+.player[data-performance] .head .artist { grid-area: artist; margin-left: 0; max-width: none; }
+.player[data-performance] .head .remaining { grid-area: remaining; }
+.player[data-performance] .head .elapsed { grid-area: elapsed; }
+.player[data-performance] .head .keyControl { grid-area: key; }
+.player[data-performance] .head .readout { grid-area: bpm; }
+.player[data-performance] .head .sync { grid-area: sync; justify-self: end; align-self: end; }
+.player[data-performance] .overviewRow { padding: 0 var(--s-player-inset); }
+/* Half a window is not wide enough for the pad row on one line, so it wraps:
+   the pads first, then memory, loops and the jumps under them. */
+.player[data-performance] .pads { flex-wrap: wrap; align-content: center; gap: 4px 0; padding: 4px 0; }
+.player[data-performance] .padCluster {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 4px 10px;
+  padding-left: 8px;
+}
+
+.headTransport {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  flex: none;
+}
+.headTransport .cue,
+.headTransport .play {
+  width: var(--s-perf-ring);
+  height: var(--s-perf-ring);
+  margin: 0;
+}
+.headTransport .playGlyph { border-left-width: 8px; border-top-width: 5px; border-bottom-width: 5px; margin-left: 2px; }
+.headTransport .artwork { width: var(--s-perf-ring); height: var(--s-perf-ring); }
+
+/* The beat jumps, at the end of the pad row rather than down a rail. */
+.padJumps {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  flex: none;
+}
+.padJumps .pair { margin: 0; }
+.padJumps .beats { margin: 0; }
+
+/* The detail waveform, drawn in the shell's stack rather than in the deck:
+   outside `.player`, so the deck's own states are repeated here. */
+.detailPortal {
+  display: grid;
+  min-height: 0;
+  min-width: 0;
+  background: var(--c-black);
+}
+.detailPortal > .detailRow { padding: 0; }
+.detailPortal[data-empty] .playhead { display: none; }
+.detailPortal[data-armed] .playhead { background: var(--c-playhead-armed); }
+.player[data-performance] .sync .chip { width: auto; height: 17px; padding: 0 6px; white-space: nowrap; font-size: 9px; }

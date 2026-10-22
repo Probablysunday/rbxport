@@ -2557,6 +2557,9 @@ export function createMockBackend(options: MockOptions = {}): Backend {
     setChannelTrim: () => wait(undefined),
     setCrossfade: () => wait(undefined),
     setEqCurve: () => wait(undefined),
+    setChannelVolume: () => wait(undefined),
+    setChannelFilter: () => wait(undefined),
+    setCrossfadeCurve: () => wait(undefined),
     deckScrubEnd: (deck) => {
       deckOf(deck).generation += 1;
       sendTick();

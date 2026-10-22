@@ -6,11 +6,14 @@
  * and what changes is how many decks sit above it and how much of a deck each
  * of those shows.
  */
-export type PlayerLayout = "one" | "two" | "simple" | "browser";
+export type PlayerLayout = "one" | "two" | "performance" | "simple" | "browser";
 
 export const LAYOUTS: readonly { id: PlayerLayout; label: string }[] = [
   { id: "one", label: "1 PLAYER" },
   { id: "two", label: "2 PLAYER" },
+  // rekordbox's PERFORMANCE 2 Deck Horizontal: waveforms stacked across the
+  // top, the decks side by side under them, the mixer between.
+  { id: "performance", label: "PERFORMANCE" },
   { id: "simple", label: "SIMPLE PLAYER" },
   { id: "browser", label: "FULL BROWSER" },
 ];
@@ -18,7 +21,7 @@ export const LAYOUTS: readonly { id: PlayerLayout; label: string }[] = [
 /** How many decks a layout draws. */
 export function deckCount(layout: PlayerLayout): number {
   if (layout === "browser") return 0;
-  if (layout === "two") return 2;
+  if (layout === "two" || layout === "performance") return 2;
   return 1;
 }
 

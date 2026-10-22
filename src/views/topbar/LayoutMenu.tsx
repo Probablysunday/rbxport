@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   LayoutBrowserIcon,
   LayoutOneIcon,
+  LayoutPerformanceIcon,
   LayoutSimpleIcon,
   LayoutTwoIcon,
   TickIcon,
@@ -21,6 +22,7 @@ import styles from "./LayoutMenu.module.css";
 const GLYPHS: Record<PlayerLayout, typeof LayoutOneIcon> = {
   one: LayoutOneIcon,
   two: LayoutTwoIcon,
+  performance: LayoutPerformanceIcon,
   simple: LayoutSimpleIcon,
   browser: LayoutBrowserIcon,
 };

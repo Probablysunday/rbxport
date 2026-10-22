@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use rbl_deck::{Band, Curve};
+use rbl_deck::{Band, Curve, Fade};
 use rbl_index::Library;
 use tauri::State;
 use tauri_plugin_opener::OpenerExt;
@@ -2726,6 +2726,52 @@ pub async fn set_crossfade<R: tauri::Runtime>(
 ) -> AppResult<()> {
     let engine = player.engine(&app)?;
     engine.mixer().set_crossfade(position);
+    Ok(())
+}
+
+/// The channel fader, 0 (down) to 1 (up).
+#[tauri::command]
+pub async fn set_channel_volume<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    player: State<'_, Arc<crate::player::Player>>,
+    deck: String,
+    position: f32,
+) -> AppResult<()> {
+    let engine = player.engine(&app)?;
+    if let Some(channel) = engine.mixer().channels.get(channel_of(&deck)) {
+        channel.set_volume(position);
+    }
+    Ok(())
+}
+
+/// The COLOR FX filter knob: 0 low-pass closed, 0.5 off, 1 high-pass closed.
+#[tauri::command]
+pub async fn set_channel_filter<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    player: State<'_, Arc<crate::player::Player>>,
+    deck: String,
+    position: f32,
+) -> AppResult<()> {
+    let engine = player.engine(&app)?;
+    if let Some(channel) = engine.mixer().channels.get(channel_of(&deck)) {
+        channel.set_filter(position);
+    }
+    Ok(())
+}
+
+/// The crossfader's curve: "full", "power" or "cut". Anything else is full.
+#[tauri::command]
+pub async fn set_crossfade_curve<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    player: State<'_, Arc<crate::player::Player>>,
+    curve: String,
+) -> AppResult<()> {
+    let engine = player.engine(&app)?;
+    engine.mixer().set_fade(match curve.as_str() {
+        "power" => Fade::Power,
+        "cut" => Fade::Cut,
+        _ => Fade::Full,
+    });
     Ok(())
 }
 
