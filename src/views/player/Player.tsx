@@ -3023,12 +3023,14 @@ export const Player = memo(function Player({
           />
         ) : null}
 
-        {viewPrefs.tempoSlider ? (
+        {/* PERFORMANCE docks the fader on every deck, as a CDJ has it, and
+            never locks it: it is there to be played, not opened on purpose. */}
+        {viewPrefs.tempoSlider || sideBySide ? (
           <div className={styles.tempoOverlay}>
             <TempoSlider tempo={playback.tempo} onTempo={playback.setTempo}
               idle={playback.idle} synced={synced} masterTempo={playback.masterTempo}
               onMasterTempo={playback.setMasterTempo} onReset={resetTempo}
-              resetLocked={tempoResetLocked} onUnlock={() => setTempoResetLocked(false)} />
+              resetLocked={tempoResetLocked && !sideBySide} onUnlock={() => setTempoResetLocked(false)} />
           </div>
         ) : null}
       </div>

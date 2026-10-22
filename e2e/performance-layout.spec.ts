@@ -98,3 +98,20 @@ test("KEY SYNC lets go of a deck in 1 PLAYER, where there is no master to follow
   await deck.getByRole("button", { name: "Key up a semitone" }).click();
   await expect(deck.getByTestId("key-shift")).toHaveText("+1");
 });
+
+test("each deck has its tempo fader to hand, and dragging it changes the tempo", async ({ page }) => {
+  const { a, b } = await performance(page);
+  await expect(b.getByRole("slider", { name: "Tempo" })).toBeVisible();
+  const fader = a.getByRole("slider", { name: "Tempo" });
+  const box = (await fader.boundingBox())!;
+  // Down is faster, as on a CDJ.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.9);
+  await page.mouse.up();
+  await expect.poll(async () => Number(await fader.getAttribute("aria-valuenow"))).toBeGreaterThan(1);
+  // RESET goes back to the track's own speed and leaves the fader free.
+  await a.getByRole("button", { name: "Reset tempo" }).click();
+  await expect(fader).toHaveAttribute("aria-valuenow", "0");
+  await expect(fader).toHaveAttribute("aria-disabled", "false");
+});

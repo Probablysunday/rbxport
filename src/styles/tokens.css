@@ -275,6 +275,7 @@
   --s-perf-deck-h: 210px; /* UNMEASURED — PERFORMANCE layout: the decks and the mixer under the waveforms */
   --s-perf-head-h: 40px; /* UNMEASURED — PERFORMANCE layout: the two-line title row */
   --s-perf-ring: 30px; /* UNMEASURED — PERFORMANCE layout: CUE and PLAY in the title row */
+  --s-perf-tempo-w: 64px; /* UNMEASURED: the tempo fader column docked on each PERFORMANCE deck; wide enough for MASTER TEMPO on two lines */
   --s-player-dual-h: 420px; /* measured from the 2-player capture docs/screenshots (rekordbox 7.2.11, 2x): the two-deck band y 56.5..476.5pt, mirrored about its own centre at 266.5 */
   --s-menu-row-h: 25px; /* the layout menu open in a capture of rekordbox 7.2.11 at 2x: five rows on a 50px pitch inside a 258px panel */
   --s-player-simple-h: 59px; /* the simple player capture docs/screenshots (Screenshot 2026-09-09 at 9.03.41 PM, rekordbox 7.2.11, 2x): the strip y 188..306 under the top bar, a 1pt black line and then the 58pt panel row; the 3pt gutter to the browser follows */

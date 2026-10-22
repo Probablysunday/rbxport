@@ -1355,6 +1355,15 @@ button.cueDelete:disabled { color: var(--c-icon-off); }
   background: var(--c-console-deck);
 }
 .player[data-performance] .side { display: none; }
+/* The tempo fader as the deck's own right-hand column rather than an overlay. */
+.player[data-performance] .main { padding-right: var(--s-perf-tempo-w); }
+.player[data-performance] .tempoOverlay {
+  top: 0;
+  bottom: 0;
+  width: var(--s-perf-tempo-w);
+  box-shadow: none;
+  border-left: 1px solid var(--c-console-rule);
+}
 .player[data-performance] .main {
   grid-template-rows:
     var(--s-perf-head-h)
