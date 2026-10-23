@@ -439,7 +439,8 @@ test("the deck tempo slider cycles ranges, resets, and can be hidden", async ({ 
   await page.mouse.move(sliderBox.x + sliderBox.width / 2, sliderBox.y + sliderBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(sliderBox.x + sliderBox.width / 2, sliderBox.y + sliderBox.height * 0.75);
-  const readout = page.locator("output").filter({ hasText: /[+-]\d+\.\d+%/ });
+  // The readout is the BPM the deck will play at, not the fader's percentage.
+  const readout = page.locator("output").filter({ hasText: /^\d+\.\d{2} BPM$/ });
   await expect(readout).toBeVisible();
   await page.mouse.up();
   await expect(readout).toHaveCount(0);
