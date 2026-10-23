@@ -2518,6 +2518,7 @@ function AppBody() {
       setEjectingDeviceId(null);
     }
   }, [syncing, exportRunning, tree, report, refuse]);
+  const ejectFromTree = useCallback((node: TreeNode) => { void ejectDeviceFromTree(node); }, [ejectDeviceFromTree]);
 
   // A stick renamed while the panel is open moves to another mount point on
   // macOS, so the node that was selected names a path that no longer
@@ -3236,7 +3237,7 @@ function AppBody() {
           railShortcuts={railShortcuts}
           onOpenShortcut={openShortcut}
           onDeleteShortcut={deleteShortcut}
-          onEjectDevice={(node) => { void ejectDeviceFromTree(node); }}
+          onEjectDevice={ejectFromTree}
           ejectingDeviceId={ejectingDeviceId}
           deviceBusy={deviceBusy}
           onDeviceCreate={createOnDevice}

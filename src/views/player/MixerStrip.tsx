@@ -86,22 +86,32 @@ function Knob({ value, min, max, reset, label, valueText, onChange, className, t
       aria-valuemax={max}
       aria-valuenow={Number(value.toFixed(2))}
       aria-valuetext={valueText}
+      // A click must not take the keyboard: the arrows that browse the
+      // library would turn the knob too. Tab still reaches it.
+      onMouseDown={(event) => event.preventDefault()}
       onPointerDown={(event) => {
+        if (event.button !== 0) return;
         event.currentTarget.setPointerCapture(event.pointerId);
         drag.current = { y: event.clientY, from: value };
       }}
       onPointerMove={(event) => {
         const from = drag.current;
-        if (!from) return;
+        // Only a drag that started here, and is still held, turns the knob.
+        if (!from || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
         // Up is more, which is the direction the knob turns.
         onChange(clamp(from.from + ((from.y - event.clientY) / KNOB_TRAVEL) * (max - min)));
       }}
       onPointerUp={() => { drag.current = null; }}
       onPointerCancel={() => { drag.current = null; }}
+      onLostPointerCapture={() => { drag.current = null; }}
       onDoubleClick={() => onChange(reset)}
       onKeyDown={(event) => {
         if (event.key === "ArrowUp") onChange(clamp(value + step));
-        if (event.key === "ArrowDown") onChange(clamp(value - step));
+        else if (event.key === "ArrowDown") onChange(clamp(value - step));
+        else return;
+        // The knob's, not the app's: no beat jump or list move as well.
+        event.preventDefault();
+        event.stopPropagation();
       }}
     >
       <span
@@ -142,19 +152,25 @@ function Fader({ value, label, vertical = false, reset = vertical ? 1 : 0.5, val
       aria-valuemax={1}
       aria-valuenow={Number(value.toFixed(2))}
       aria-valuetext={valueText ?? `${Math.round(value * 100)}%`}
+      onMouseDown={(event) => event.preventDefault()}
       onPointerDown={(event) => {
+        if (event.button !== 0) return;
         event.currentTarget.setPointerCapture(event.pointerId);
         move(event);
       }}
       onPointerMove={(event) => {
-        if (event.buttons !== 0) move(event);
+        // Not any held button passing over it, such as a track being dragged.
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) move(event);
       }}
       onDoubleClick={() => onChange(reset)}
       onKeyDown={(event) => {
         const up = vertical ? "ArrowUp" : "ArrowRight";
         const down = vertical ? "ArrowDown" : "ArrowLeft";
         if (event.key === up) onChange(Math.min(value + 0.05, 1));
-        if (event.key === down) onChange(Math.max(value - 0.05, 0));
+        else if (event.key === down) onChange(Math.max(value - 0.05, 0));
+        else return;
+        event.preventDefault();
+        event.stopPropagation();
       }}
     >
       <span

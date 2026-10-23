@@ -51,6 +51,9 @@ export function TempoSlider({ tempo, bpmX100, onTempo, onBpmChange, idle, synced
         <div className={styles.track} role="slider" aria-label="Tempo" aria-orientation="vertical"
           aria-valuemin={-ends.down} aria-valuemax={ends.up} aria-valuenow={Number(((tempo - 1) * 100).toFixed(2))} aria-valuetext={reading(tempo)}
           aria-disabled={disabled} tabIndex={disabled ? -1 : 0}
+          // A drag must not leave the keyboard here, or the arrows that
+          // browse the library would also move the tempo.
+          onMouseDown={(event) => event.preventDefault()}
           onPointerDown={(event) => {
             if (disabled || event.button !== 0) return;
             event.currentTarget.setPointerCapture(event.pointerId);

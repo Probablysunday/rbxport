@@ -134,3 +134,37 @@ test("a double-click on the BPM under the tempo fader types a tempo in", async (
   await field.press("Escape");
   await expect(a.getByTestId("player-bpm")).toHaveText("130.00");
 });
+
+test("controls only move when they are what was grabbed", async ({ page }) => {
+  const { a } = await performance(page);
+  const mixer = page.getByRole("group", { name: "Mixer" });
+  const fader = mixer.getByRole("slider", { name: "Deck A channel fader" });
+  const high = mixer.getByRole("slider", { name: "Deck A HIGH" });
+  const tempo = a.getByRole("slider", { name: "Tempo" });
+
+  // A button held down elsewhere and swept across the fader leaves it be.
+  const box = (await fader.boundingBox())!;
+  await page.mouse.move(box.x - 40, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.8, { steps: 5 });
+  await page.mouse.up();
+  await expect(fader).toHaveAttribute("aria-valuenow", "1");
+
+  // Grabbing a knob or the tempo fader does not leave the arrow keys on it.
+  const knob = (await high.boundingBox())!;
+  await page.mouse.move(knob.x + knob.width / 2, knob.y + knob.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(knob.x + knob.width / 2, knob.y - 20, { steps: 4 });
+  await page.mouse.up();
+  const turned = await high.getAttribute("aria-valuenow");
+  expect(Number(turned)).toBeGreaterThan(0.5);
+  await page.keyboard.press("ArrowDown");
+  await expect(high).toHaveAttribute("aria-valuenow", turned!);
+
+  const t = (await tempo.boundingBox())!;
+  await page.mouse.click(t.x + t.width / 2, t.y + t.height * 0.7);
+  const set = await tempo.getAttribute("aria-valuenow");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowUp");
+  await expect(tempo).toHaveAttribute("aria-valuenow", set!);
+});

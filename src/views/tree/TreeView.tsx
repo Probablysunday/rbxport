@@ -427,6 +427,8 @@ export const TreeView = memo(function TreeView({
   const [scope, setScope] = useState<TreeSearchScope>("all");
   /** The tree menu: where it is, and which node it was opened on. */
   const [menu, setMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(null);
+  // Stable, so a row only re-renders when its own props change.
+  const openMenu = useCallback((node: TreeNode, at: { x: number; y: number }) => setMenu({ ...at, node }), []);
 
   // The Playlist menu's commands (see `src/lib/commands.ts`), on the selected
   // node: the native menu's items run these, and the tree menu runs the same
@@ -644,7 +646,7 @@ export const TreeView = memo(function TreeView({
             droppable={Boolean(dragging) && node.kind === "playlist"}
             onDropTracks={onDropTracks}
             onDropFiles={onDropFiles}
-            onMenu={(node, at) => setMenu({ ...at, node })}
+            onMenu={openMenu}
             count={showCounts && (node.kind === "playlist" || node.kind === "devicePlaylist") ? node.childCount : undefined}
             renaming={!readOnly && node.id === renamingId}
             onRename={readOnly ? undefined : renameNode}
