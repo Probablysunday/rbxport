@@ -28,6 +28,17 @@ export function UsbExportPane() {
       </label>
       <label className={`${layout.summary} ${styles.option}`}>
         <span className={styles.details}>
+          <strong id={`${id}-one-library`}>Write OneLibrary</strong>
+          <span id={`${id}-one-library-help`} className={styles.description}>Also write exportLibrary.db for players that read OneLibrary, such as the CDJ-3000X and OPUS-QUAD. When off, only the Device Library (export.pdb) is written, and an exportLibrary.db already on the USB is removed on the next export.</span>
+          <span className={styles.default}>Default: Off</span>
+        </span>
+        <input type="checkbox" role="switch" className={controls.toggle}
+          aria-labelledby={`${id}-one-library`} aria-describedby={`${id}-one-library-help`}
+          checked={preferences.djSystem.writeOneLibrary}
+          onChange={event => update("djSystem", { writeOneLibrary: event.target.checked })} />
+      </label>
+      <label className={`${layout.summary} ${styles.option}`}>
+        <span className={styles.details}>
           <strong id={`${id}-cleanup`}>Delete music not in any playlist</strong>
           <span id={`${id}-cleanup-help`} className={styles.description}>Free space on your USB stick by removing songs that aren't in any playlist.</span>
           <span className={styles.default}>Default: Off</span>

@@ -307,14 +307,13 @@ fn read_files(mount_point: &Path) -> DeviceSettings {
     };
     let pdb_path = root.join("rekordbox/export.pdb");
     let has_device_library = pdb_path.is_file();
-    let device_library_background = if has_device_library {
-        std::fs::read(&pdb_path)
-            .ok()
-            .and_then(|bytes| rbl_pdb::Pdb::parse(&bytes).ok()?.property())
-            .map(|property| property.background_color)
-    } else {
-        None
-    };
+    let pdb_bytes = if has_device_library { std::fs::read(&pdb_path).ok() } else { None };
+    let device_library_background = pdb_bytes
+        .as_deref()
+        .and_then(|bytes| rbl_pdb::Pdb::parse(bytes).ok()?.property())
+        .map(|property| property.background_color);
+    // A stick exported without OneLibrary keeps the same settings in export.pdb.
+    let library = library.or_else(|| pdb_bytes.as_deref().and_then(rbl_export::pdb_settings));
     DeviceSettings { dev, library, device_library_background, has_device_library, has_one_library }
 }
 
@@ -629,6 +628,25 @@ mod tests {
         let table = pdb.table(rbl_pdb::PageType::HistoryEntries).unwrap();
         let row = pdb.rows(table).into_iter().find(|r| pdb.u2_at(*r, 0) == 22).unwrap();
         assert_eq!((pdb.u1_at(row, 4), pdb.u1_at(row, 5)), (0, 8), "shown, eighth");
+    }
+
+    #[test]
+    fn a_stick_without_onelibrary_keeps_its_tabs_in_the_device_library() {
+        let stick = tempfile::tempdir().unwrap();
+        assert!(rbl_export::create_library_with_root(stick.path(), None, &[], None, None, false).unwrap());
+        let current = read(stick.path());
+        assert!(!current.has_one_library);
+        let mut next = current.clone();
+        let library = next.library.as_mut().expect("read from export.pdb");
+        let date_added = library.sorts.iter_mut().find(|s| s.name == "DATE ADDED").unwrap();
+        date_added.visible = true;
+        date_added.seq = 8;
+        library.colors[0].name = "Vocal".to_owned();
+        write_changes(stick.path(), &current, &next).unwrap();
+
+        let back = read(stick.path());
+        assert_eq!(back.library, next.library);
+        assert!(!stick.path().join("PIONEER/rekordbox/exportLibrary.db").exists());
     }
 
     #[test]

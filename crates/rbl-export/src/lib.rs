@@ -901,6 +901,10 @@ pub struct ExportOptions<'a> {
     /// their place, instead of being taken off. Export Playlist and Export
     /// Track add to a device as rekordbox's do; a SYNC leaves this off.
     pub keep_unlisted: bool,
+    /// Write only the Device Library (`export.pdb`), and take an
+    /// `exportLibrary.db` an earlier export left off the stick. The browse
+    /// settings then live in `export.pdb` alone.
+    pub device_library_only: bool,
 }
 
 /// Export with optional conversion of audio outside the common CDJ formats.
@@ -948,7 +952,7 @@ fn export_cancellable_inner(
     let _inspection = incremental::Inspection::new();
     let started = std::time::Instant::now();
     let requested_tracks = tracks;
-    let &ExportOptions { defaults, sync, compatibility, root, keep_unlisted: _, settings_files, cache, expected_volume, verify_all } = options;
+    let &ExportOptions { defaults, sync, compatibility, root, keep_unlisted: _, settings_files, cache, expected_volume, verify_all, device_library_only } = options;
     if let Some(volume) = expected_volume { volume.check(destination)?; }
     if destination.exists() && !destination.is_dir() {
         return Err(ExportError::NotADirectory(destination.to_owned()));
@@ -1010,7 +1014,7 @@ fn export_cancellable_inner(
                 elapsed_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX), metrics: incremental::metrics(),
                 reused: old.tracks.len(), bytes_reused: old.tracks.iter().filter_map(|t| t.copy_stamp.map(|s| s.0)).sum(),
                 in_place: old.tracks.iter().filter(|t| t.in_place).count(),
-                one_library: true, ..Default::default()
+                one_library: !device_library_only, ..Default::default()
             });
         }
     }
@@ -1798,7 +1802,10 @@ fn export_cancellable_inner(
     let existing_database = db_dir.join("exportLibrary.db");
     let settings = if existing_database.exists() {
         Some(rbl_onelibrary::settings::StickSettings::read(&existing_database).map_err(|e| one_library_error(&e))?)
-    } else { None };
+    } else {
+        // A Device-Library-only stick keeps its choices in export.pdb.
+        std::fs::read(db_dir.join("export.pdb")).ok().and_then(|bytes| pdb_settings(&bytes))
+    };
     // The artwork table names the small image of each; a player derives the
     // others from the same name [ASSUME: what the `artwork` row of a
     // rekordbox export names, of the four files it writes per image].
@@ -1867,8 +1874,10 @@ fn export_cancellable_inner(
     let tagged: Vec<(u32, &[u64])> = one_library_tracks.iter().map(|t| (t.export_id, t.my_tags.as_slice())).collect();
     std::fs::write(staged_db.join("exportExt.pdb"), ext_pdb::build(my_tags, &tagged, master_db_id)).map_err(context("Could not write exportExt.pdb".to_owned()))?;
 
-    write_one_library(&staged_db, &one_library_tracks, playlists, &playlist_ids, &export_ids, &artwork_paths, my_tags, settings.as_ref().or(defaults), master_db_id, &before, Some(&existing_database))?;
-    report.one_library = true;
+    if !device_library_only {
+        write_one_library(&staged_db, &one_library_tracks, playlists, &playlist_ids, &export_ids, &artwork_paths, my_tags, settings.as_ref().or(defaults), master_db_id, &before, Some(&existing_database))?;
+        report.one_library = true;
+    }
 
     // The DJ's My Settings, as rekordbox puts them on every stick it writes.
     if let Some(source) = rbl_core::paths::rekordbox_settings_dir() {
@@ -1907,7 +1916,14 @@ fn export_cancellable_inner(
     let named: Vec<String> = recorded.iter().map(|track| track.audio.clone()).collect();
     let after = snapshot::Snapshot::read_at(publication.stage(), root_name)?;
     before.check_retained_history(&after)?;
-    before.check_changes_except(previous.as_ref(), &after, &device_additions)?;
+    if device_library_only && before.one.is_some() {
+        // The OneLibrary is being taken off on purpose; what it held was
+        // merged into the Device Library above.
+        let without_one = snapshot::Snapshot { one: None, ..before.clone() };
+        without_one.check_changes_except(previous.as_ref(), &after, &device_additions)?;
+    } else {
+        before.check_changes_except(previous.as_ref(), &after, &device_additions)?;
+    }
     progress(&ExportProgress { stage: "verifying", done: 0, total: 0, title: String::new(), reused: report.reused, copied: report.tracks_added + report.tracks_updated, converted: report.converted, ..Default::default() });
     let verified_reused: BTreeSet<String> = trusted.iter().filter(|p| !publication.stage().join(p).is_file()).cloned().collect();
     let verified = verification::verify_staged_incremental(publication.stage(), destination, &after, &absent_audio, &verified_reused)?;
@@ -1953,6 +1969,8 @@ fn export_cancellable_inner(
     files.extend(moved_audio);
     // A rebuilt database never inherits WAL pages from its previous image.
     files.splice(0..0, [format!("{root_name}/rekordbox/exportLibrary.db-wal").into(), format!("{root_name}/rekordbox/exportLibrary.db-shm").into()]);
+    // Not staged, so publishing removes the one an earlier export wrote.
+    if device_library_only { files.push(format!("{root_name}/rekordbox/exportLibrary.db").into()); }
     files.extend(deletions);
     // Reclaim only our known files, inside the recoverable transaction. Never
     // recursively remove an analysis directory: another writer may own extras.
@@ -2051,6 +2069,47 @@ pub fn menu_tables(settings: &rbl_onelibrary::settings::StickSettings) -> (Vec<V
         rbl_pdb::reference::categories(|item| seq_of(&settings.categories, item)),
         rbl_pdb::reference::sorts(|item| seq_of(&settings.sorts, item), sub_column),
     )
+}
+
+/// The device settings a stick without `exportLibrary.db` keeps in
+/// `export.pdb`: the colour names, the device name, and the browse
+/// categories and sort options, read back from the rows [`menu_tables`]
+/// writes. `None` when the file does not parse.
+#[must_use]
+pub fn pdb_settings(bytes: &[u8]) -> Option<rbl_onelibrary::settings::StickSettings> {
+    use rbl_onelibrary::settings::MenuSlot;
+    let pdb = rbl_pdb::Pdb::parse(bytes).ok()?;
+    let mut settings = rbl_onelibrary::settings::StickSettings::default();
+    // (menu item, flags, seq) of each row; the two tables place them differently.
+    let rows = |kind: rbl_pdb::PageType, flags_at: usize, seq: &dyn Fn(rbl_pdb::RowRef) -> u16| {
+        pdb.table(kind).map(|t| pdb.rows(t).into_iter().map(|r| (pdb.u2_at(r, 0), pdb.u1_at(r, flags_at), seq(r))).collect::<Vec<_>>())
+    };
+    let apply = |slots: &mut Vec<MenuSlot>, rows: &[(u16, u8, u16)]| {
+        for slot in slots.iter_mut() {
+            if let Some(&(_, flags, seq)) = rows.iter().find(|(item, _, _)| i64::from(*item) == slot.menu_item) {
+                slot.visible = flags & 1 == 0;
+                slot.seq = if slot.visible { i64::from(seq) } else { 0 };
+            }
+        }
+    };
+    if let Some(rows) = rows(rbl_pdb::PageType::HistoryPlaylists, 5, &|r| pdb.u2_at(r, 6)) {
+        apply(&mut settings.categories, &rows);
+    }
+    if let Some(rows) = rows(rbl_pdb::PageType::HistoryEntries, 4, &|r| u16::from(pdb.u1_at(r, 5))) {
+        apply(&mut settings.sorts, &rows);
+        settings.sub_column = rows.iter().find(|(_, flags, _)| flags & 2 != 0).map(|(item, _, _)| i64::from(*item));
+    }
+    if let Some(table) = pdb.table(rbl_pdb::PageType::Colors) {
+        for color in pdb.named_rows(table) {
+            if let Some(slot) = settings.colors.iter_mut().find(|c| c.id == i64::from(color.id)) {
+                slot.name = color.name;
+            }
+        }
+    }
+    if let Some(property) = pdb.property() {
+        settings.device_name = property.device_name;
+    }
+    Some(settings)
 }
 
 /// The rows of the tables an export fills from the library; every other
@@ -2159,7 +2218,7 @@ pub fn create_library(
     my_tags: &[SourceMyTag],
     sync: Option<&SyncSource>,
 ) -> Result<bool> {
-    create_library_with_root(destination, defaults, my_tags, sync, None)
+    create_library_with_root(destination, defaults, my_tags, sync, None, true)
 }
 
 /// [`create_library`], choosing the rekordbox root for a blank volume.
@@ -2169,6 +2228,7 @@ pub fn create_library_with_root(
     my_tags: &[SourceMyTag],
     sync: Option<&SyncSource>,
     preferred_root: Option<ExportRoot>,
+    one_library: bool,
 ) -> Result<bool> {
     if destination.exists() && !destination.is_dir() {
         return Err(ExportError::NotADirectory(destination.to_owned()));
@@ -2213,7 +2273,9 @@ pub fn create_library_with_root(
     // the blank stick's `exportExt.pdb` held all 99].
     let master_db_id = my_tag_master_db_id(sync);
     rbl_core::durable::write(&db_dir.join("exportExt.pdb"), &ext_pdb::build(my_tags, &[], master_db_id))?;
-    write_one_library(&db_dir, &[], &[], &[], &[], &[], my_tags, defaults, master_db_id, &snapshot::Snapshot::default(), None)?;
+    if one_library {
+        write_one_library(&db_dir, &[], &[], &[], &[], &[], my_tags, defaults, master_db_id, &snapshot::Snapshot::default(), None)?;
+    }
     let files = staged_files(publication.stage(), &[])?;
     publication.commit(&files)?;
     Ok(true)

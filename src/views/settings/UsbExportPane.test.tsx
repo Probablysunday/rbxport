@@ -43,6 +43,20 @@ it("keeps the blank-drive database option in USB Export and updates its existing
   expect(update).toHaveBeenCalledWith("djSystem", { createDatabaseFolders: false });
 });
 
+it("leaves OneLibrary off by default and turns it on", () => {
+  const update = vi.fn();
+  act(() => root.render(
+    <PreferencesProvider value={{ preferences: DEFAULT_PREFERENCES, update, reset: vi.fn() }}>
+      <UsbExportPane />
+    </PreferencesProvider>,
+  ));
+
+  const option = host.querySelector<HTMLInputElement>('input[aria-labelledby$="-one-library"]');
+  expect(option?.checked).toBe(false);
+  act(() => option?.click());
+  expect(update).toHaveBeenCalledWith("djSystem", { writeOneLibrary: true });
+});
+
 it("explains the import and sync options and shows their defaults", () => {
   act(() => root.render(
     <PreferencesProvider value={{ preferences: DEFAULT_PREFERENCES, update: vi.fn(), reset: vi.fn() }}>
@@ -54,7 +68,7 @@ it("explains the import and sync options and shows their defaults", () => {
   expect(host.textContent).toContain("Device ratings win when a track was also rated in your library.");
   expect(host.textContent).toContain("Free space on your USB stick by removing songs that aren't in any playlist.");
   expect([...host.querySelectorAll(`.${styles.default}`)].map(node => node.textContent)).toEqual([
-    "Default: On", "Default: Off", "Default: Off", "Default: On", "Default: On", "Default: Off", "Default: On",
+    "Default: On", "Default: Off", "Default: Off", "Default: Off", "Default: On", "Default: On", "Default: Off", "Default: On",
   ]);
   const sections = [...host.querySelectorAll("section")];
   expect(sections.map(section => section.getAttribute("aria-label"))).toEqual(["Sync", "Import"]);

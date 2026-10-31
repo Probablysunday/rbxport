@@ -226,6 +226,12 @@ export interface DjSystemPreferences {
    */
   createDatabaseFolders: boolean;
   /**
+   * Whether an export writes OneLibrary (`exportLibrary.db`) beside the
+   * Device Library. Off: only `export.pdb` is written, and an
+   * `exportLibrary.db` already on the stick is removed.
+   */
+  writeOneLibrary: boolean;
+  /**
    * The OS name of the network interface PRO DJ LINK runs on (`en0`,
    * `Ethernet 2`), or null to take the one the players are reached through.
    */
@@ -385,6 +391,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
     sorts: null,
     subColumn: null,
     createDatabaseFolders: true,
+    writeOneLibrary: false,
     linkInterface: null,
     autoJoinLink: false,
     linkKeySort: "musical",
@@ -565,6 +572,7 @@ export function sanitisePreferences(value: unknown): Preferences {
         ? dj.subColumn
         : null,
       createDatabaseFolders: bool(dj.createDatabaseFolders, d.djSystem.createDatabaseFolders),
+      writeOneLibrary: bool(dj.writeOneLibrary, d.djSystem.writeOneLibrary),
       autoJoinLink: bool(dj.autoJoinLink, d.djSystem.autoJoinLink),
       linkKeySort: oneOf(dj.linkKeySort, ["alphabetical", "musical"] as const, d.djSystem.linkKeySort),
       linkInterface: typeof dj.linkInterface === "string" && dj.linkInterface !== "" ? dj.linkInterface : null,

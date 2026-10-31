@@ -2195,6 +2195,7 @@ fn write_export_with_phase(
             cache: Some(&EXPORT_CACHE),
             expected_volume,
             verify_all,
+            device_library_only: defaults.is_some_and(|d| !d.write_one_library),
         },
         progress,
         cancelled,

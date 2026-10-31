@@ -2250,6 +2250,8 @@ export interface StickDefaults {
   categories: MenuSlot[] | null;
   sorts: MenuSlot[] | null;
   subColumn: number | null;
+  /** Write `exportLibrary.db` too; off writes only `export.pdb` and removes it. */
+  writeOneLibrary?: boolean;
 }
 
 /** Everything the device tabs read and write. A few kilobytes. */

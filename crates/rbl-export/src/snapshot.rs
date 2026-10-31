@@ -288,7 +288,7 @@ impl Snapshot {
         Err(ExportError::Conflict(format!("'{title}' has cue points added or changed on a player, and this sync would take it off the USB. Keep a playlist that holds it in the sync, or delete the track from the USB in rekordbox, then sync again.")))
     }
     pub fn check_retained_history(&self, next: &Self) -> Result<()> {
-        let tracks = next.one.as_ref().map(|l| &l.tracks);
+        let tracks = next.one.as_ref().or(next.legacy.as_ref()).map(|l| &l.tracks);
         if self
             .history
             .iter()

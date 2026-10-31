@@ -216,6 +216,10 @@ pub struct StickDefaultsDto {
     pub categories: Option<Vec<MenuSlotDto>>,
     pub sorts: Option<Vec<MenuSlotDto>>,
     pub sub_column: Option<i64>,
+    /// Write `exportLibrary.db` as well as `export.pdb`. Off unless asked:
+    /// a player reading the Device Library ignores it.
+    #[serde(default)]
+    pub write_one_library: bool,
 }
 
 /// The reference rows a fresh `exportLibrary.db` starts from.
@@ -367,7 +371,8 @@ pub async fn ensure_device_library(
             .into_iter()
             .find(|device| device.mount_point == mount)
             .and_then(|device| rbl_export::ExportRoot::for_file_system(&device.file_system));
-        rbl_export::create_library_with_root(mount, library.as_ref(), &my_tags, Some(&sync), preferred_root)
+        let one_library = defaults.as_ref().is_none_or(|d| d.write_one_library);
+        rbl_export::create_library_with_root(mount, library.as_ref(), &my_tags, Some(&sync), preferred_root, one_library)
             .map_err(|e| AppError::new(ErrorKind::Internal, e.to_string()))?;
         if let Some(defaults) = &defaults {
             write_dev_defaults(mount, defaults)?;
@@ -519,6 +524,7 @@ mod tests {
             categories: None,
             sorts: None,
             sub_column: Some(5),
+            write_one_library: false,
         }
     }
 

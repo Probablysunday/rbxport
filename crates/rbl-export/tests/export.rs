@@ -446,6 +446,7 @@ fn a_blank_hfs_stick_gets_only_the_hidden_rekordbox_root() {
         &[],
         None,
         Some(rbl_export::ExportRoot::Hidden),
+        true,
     )
     .unwrap());
     assert!(stick.path().join(".PIONEER/rekordbox/export.pdb").is_file());
@@ -920,4 +921,39 @@ fn a_track_that_cannot_be_converted_is_reported_and_the_rest_still_sync() {
     assert!(verify(dest.path()).unwrap().is_ok());
     let wavs = std::fs::read_dir(dest.path().join("Contents")).unwrap().count();
     assert!(wavs > 0);
+}
+
+#[test]
+fn a_device_library_only_export_takes_onelibrary_off_and_keeps_the_browse_settings() {
+    let src = tempfile::tempdir().unwrap();
+    let dest = common::stick();
+    let mut t = track(src.path(), 1, "Kept", "Artist");
+    t.id = 1;
+    let tracks = vec![t];
+    let playlists = vec![SourcePlaylist { id: 1, name: "Playlist".into(), track_indices: vec![0], ..Default::default() }];
+    // An earlier export wrote both databases, with DATE ADDED made a sort option.
+    let mut settings = rbl_onelibrary::settings::StickSettings::default();
+    let date_added = settings.sorts.iter_mut().find(|s| s.name == "DATE ADDED").unwrap();
+    date_added.visible = true;
+    date_added.seq = 8;
+    rbl_export::export_with(dest.path(), &tracks, &playlists, Some(&settings)).unwrap();
+    let one = dest.path().join("PIONEER/rekordbox/exportLibrary.db");
+    assert!(one.is_file());
+
+    let only = rbl_export::ExportOptions { device_library_only: true, ..Default::default() };
+    for pass in ["drops it", "stays without it"] {
+        let report = rbl_export::export_with_options(dest.path(), &tracks, &playlists, &[], &only, &mut |_| {}).unwrap();
+        assert!(!report.one_library, "{pass}");
+        assert!(!one.exists(), "{pass}");
+        assert!(rbl_export::verify(dest.path()).unwrap().is_ok(), "{pass}");
+        let pdb = std::fs::read(dest.path().join("PIONEER/rekordbox/export.pdb")).unwrap();
+        let read = rbl_export::pdb_settings(&pdb).unwrap();
+        let date_added = read.sorts.iter().find(|s| s.name == "DATE ADDED").unwrap();
+        assert!(date_added.visible && date_added.seq == 8, "{pass}: {date_added:?}");
+        assert_eq!(read.categories, settings.categories, "{pass}");
+        assert_eq!(read.sub_column, settings.sub_column, "{pass}");
+    }
+    let snapshot = rbl_export::snapshot::Snapshot::read(dest.path()).unwrap();
+    assert!(snapshot.one.is_none());
+    assert_eq!(snapshot.legacy.unwrap().playlists.len(), 1);
 }

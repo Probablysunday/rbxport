@@ -65,13 +65,14 @@ pub fn verify_content(root: &Path) -> Result<VerifyReport> {
 pub fn verify_databases(root: &Path) -> Result<VerifyReport> {
     let snapshot = Snapshot::read(root)?;
     let mut report = VerifyReport::default();
-    let (Some(legacy), Some(one)) = (&snapshot.legacy, &snapshot.one) else {
-        report.errors.push("Both Device Library and OneLibrary must be present".into());
+    // OneLibrary is optional: a Device-Library-only export leaves it off.
+    let Some(legacy) = &snapshot.legacy else {
+        report.errors.push("The Device Library (export.pdb) must be present".into());
         return Ok(report);
     };
     report.parsed = true;
     verify_track_records(root, &mut report.errors)?;
-    if legacy != one { report.errors.push(disagreement(legacy, one)); }
+    if let Some(one) = snapshot.one.as_ref().filter(|one| legacy != *one) { report.errors.push(disagreement(legacy, one)); }
     report.tracks = legacy.tracks.len();
     report.playlists = legacy.playlists.len();
     report.playlist_entries = legacy.playlists.iter().map(|playlist| playlist.tracks.len()).sum();
@@ -114,15 +115,13 @@ pub(crate) fn verify_staged_incremental(
             crate::checked_under(existing, relative)
         }
     };
-    let (Some(legacy), Some(one)) = (&snapshot.legacy, &snapshot.one) else {
-        report
-            .errors
-            .push("Both Device Library and OneLibrary must be present".into());
+    let Some(legacy) = &snapshot.legacy else {
+        report.errors.push("The Device Library (export.pdb) must be present".into());
         return Ok(report);
     };
     report.parsed = true;
     verify_track_records(root, &mut report.errors)?;
-    if legacy != one {
+    if let Some(one) = snapshot.one.as_ref().filter(|one| legacy != *one) {
         report.errors.push(disagreement(legacy, one));
     }
     report.tracks = legacy.tracks.len();
@@ -216,14 +215,18 @@ fn verify_track_records(root: &Path, errors: &mut Vec<String>) -> Result<()> {
     let bytes = std::fs::read(pdb_path)?;
     let pdb = rbl_pdb::Pdb::parse(&bytes)
         .map_err(|e| crate::ExportError::Conflict(format!("Invalid Device Library: {e}")))?;
-    let one = rbl_onelibrary::ExportLibrary::open_read_only(&root.join(crate::export_root_name(root)?).join("rekordbox/exportLibrary.db"))
-        .map_err(|e| crate::ExportError::OneLibrary(e.to_string()))?;
-    let mut query = one.connection().prepare("SELECT content_id, COALESCE(isHotCueAutoLoadOn,0) FROM content")
-        .map_err(|e| crate::ExportError::OneLibrary(e.to_string()))?;
-    let flags = query.query_map([], |r| Ok((r.get::<_, u32>(0)?, r.get::<_, bool>(1)?)))
-        .map_err(|e| crate::ExportError::OneLibrary(e.to_string()))?
-        .collect::<std::result::Result<std::collections::BTreeMap<_,_>,_>>()
-        .map_err(|e| crate::ExportError::OneLibrary(e.to_string()))?;
+    let one_path = root.join(crate::export_root_name(root)?).join("rekordbox/exportLibrary.db");
+    let flags = if one_path.exists() {
+        let one = rbl_onelibrary::ExportLibrary::open_read_only(&one_path)
+            .map_err(|e| crate::ExportError::OneLibrary(e.to_string()))?;
+        let mut query = one.connection().prepare("SELECT content_id, COALESCE(isHotCueAutoLoadOn,0) FROM content")
+            .map_err(|e| crate::ExportError::OneLibrary(e.to_string()))?;
+        let flags = query.query_map([], |r| Ok((r.get::<_, u32>(0)?, r.get::<_, bool>(1)?)))
+            .map_err(|e| crate::ExportError::OneLibrary(e.to_string()))?
+            .collect::<std::result::Result<std::collections::BTreeMap<_,_>,_>>()
+            .map_err(|e| crate::ExportError::OneLibrary(e.to_string()))?;
+        flags
+    } else { std::collections::BTreeMap::new() };
     if let Some(table) = pdb.table(rbl_pdb::PageType::Tracks) {
         for row in pdb.rows(table) {
             let id = pdb.u4_at(row, 0x48);
