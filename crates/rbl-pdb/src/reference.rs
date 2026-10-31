@@ -3,10 +3,12 @@
 //! Read out of two rekordbox 7.2.11 exports on 2026-09-17, one of an empty
 //! device library and one of a 61-track playlist [OBS]: the rows of these
 //! three tables were the same bytes in both. They are the browse column
-//! names (`columns`, page type 16) and the two tables behind the History
-//! menu (types 17 and 18), and a player expects them to be there. Kept as
+//! names (`columns`, page type 16) and the browse categories and sort
+//! options (types 17 and 18), and a player expects them to be there. Kept as
 //! rekordbox's bytes rather than re-encoded from names, so nothing here can
-//! drift from what the reference stick carried.
+//! drift from what the reference stick carried. Only the visibility and
+//! order of the last two follow the device's Category and Sort tabs; see
+//! [`categories`] and [`sorts`].
 
 /// `columns`, page type 16: 27 rows, one per browse column, UTF-16 names
 /// wrapped in the `0xfffa`/`0xfffb` markers rekordbox uses for them.
@@ -40,8 +42,11 @@ pub const COLUMNS: &[&[u8]] = &[
     &[0x1b, 0x00, 0xaa, 0x00, 0x90, 0x18, 0x00, 0x00, 0xfa, 0xff, 0x4d, 0x00, 0x41, 0x00, 0x54, 0x00, 0x43, 0x00, 0x48, 0x00, 0x49, 0x00, 0x4e, 0x00, 0x47, 0x00, 0xfb, 0xff],
 ];
 
-/// `history_playlists`, page type 17: 22 rows.
-pub const HISTORY_PLAYLISTS: &[&[u8]] = &[
+/// Browse categories, page type 17: 22 rows of `menu_item u16, u16, u8,
+/// flags u8, seq u16`. Read against `exportLibrary.db`'s `category` table on
+/// the same stick [OBS]: the first word is its `menuItem_id`, flag bit 0 is
+/// "hidden", and `seq` is `sequenceNo` (0 when hidden).
+pub const CATEGORIES: &[&[u8]] = &[
     &[0x01, 0x00, 0x01, 0x00, 0x63, 0x01, 0x00, 0x00],
     &[0x05, 0x00, 0x06, 0x00, 0x05, 0x01, 0x00, 0x00],
     &[0x06, 0x00, 0x07, 0x00, 0x63, 0x01, 0x00, 0x00],
@@ -66,8 +71,10 @@ pub const HISTORY_PLAYLISTS: &[&[u8]] = &[
     &[0x16, 0x00, 0x1b, 0x00, 0x63, 0x00, 0x0a, 0x00],
 ];
 
-/// `history_entries`, page type 18: 17 rows.
-pub const HISTORY_ENTRIES: &[&[u8]] = &[
+/// Sort options, page type 18: 17 rows of `menu_item u16, u16, flags u8,
+/// seq u8, u16`. Read against the `sort` table the same way [OBS]: flag bit 0
+/// is "hidden", bit 1 is `isSelectedAsSubColumn` (set on COMMENTS there).
+pub const SORTS: &[&[u8]] = &[
     &[0x01, 0x00, 0x06, 0x00, 0x01, 0x00, 0x00, 0x00],
     &[0x15, 0x00, 0x07, 0x00, 0x03, 0x00, 0x00, 0x00],
     &[0x0e, 0x00, 0x08, 0x00, 0x01, 0x00, 0x00, 0x00],
@@ -86,3 +93,69 @@ pub const HISTORY_ENTRIES: &[&[u8]] = &[
     &[0x06, 0x00, 0x05, 0x00, 0x00, 0x06, 0x00, 0x00],
     &[0x0b, 0x00, 0x0c, 0x00, 0x00, 0x07, 0x00, 0x00],
 ];
+
+/// [`CATEGORIES`] with each row shown or hidden as `seq_of` says: the
+/// position among the visible rows for a shown menu item, `None` to hide it.
+#[must_use]
+pub fn categories(seq_of: impl Fn(u16) -> Option<u16>) -> Vec<Vec<u8>> {
+    CATEGORIES
+        .iter()
+        .map(|reference| {
+            let mut row = reference.to_vec();
+            let seq = seq_of(u16::from_le_bytes([row[0], row[1]]));
+            row[5] = (row[5] & !1) | u8::from(seq.is_none());
+            row[6..8].copy_from_slice(&seq.unwrap_or(0).to_le_bytes());
+            row
+        })
+        .collect()
+}
+
+/// [`SORTS`] the same way, with `sub_column` the one menu item flagged as
+/// the player's sub-column.
+#[must_use]
+pub fn sorts(seq_of: impl Fn(u16) -> Option<u16>, sub_column: Option<u16>) -> Vec<Vec<u8>> {
+    SORTS
+        .iter()
+        .map(|reference| {
+            let mut row = reference.to_vec();
+            let item = u16::from_le_bytes([row[0], row[1]]);
+            let seq = seq_of(item);
+            row[4] = u8::from(seq.is_none()) | (u8::from(sub_column == Some(item)) << 1);
+            row[5] = seq.map_or(0, |s| u8::try_from(s).unwrap_or(u8::MAX));
+            row
+        })
+        .collect()
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    /// The reference stick's own choices, written back through the two
+    /// functions, give rekordbox's bytes unchanged.
+    #[test]
+    fn the_reference_choices_give_the_reference_rows() {
+        let shown = |rows: &[&[u8]], at: usize, hidden: fn(&[u8]) -> bool| {
+            rows.iter()
+                .filter(|r| !hidden(r))
+                .map(|r| (u16::from_le_bytes([r[0], r[1]]), u16::from(r[at])))
+                .collect::<Vec<_>>()
+        };
+        let cats = shown(CATEGORIES, 6, |r| r[5] & 1 != 0);
+        let rows = categories(|item| cats.iter().find(|(i, _)| *i == item).map(|(_, s)| *s));
+        assert_eq!(rows, CATEGORIES.iter().map(|r| r.to_vec()).collect::<Vec<_>>());
+
+        let sorted = shown(SORTS, 5, |r| r[4] & 1 != 0);
+        let rows = sorts(|item| sorted.iter().find(|(i, _)| *i == item).map(|(_, s)| *s), Some(21));
+        assert_eq!(rows, SORTS.iter().map(|r| r.to_vec()).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn date_added_can_be_made_a_sort_option() {
+        let rows = sorts(|item| (item == 22).then_some(8), None);
+        let date_added = rows.iter().find(|r| r[0] == 22).unwrap();
+        assert_eq!(&date_added[4..6], &[0, 8], "shown, eighth");
+        assert!(rows.iter().filter(|r| r[0] != 22).all(|r| r[4] == 1 && r[5] == 0));
+    }
+}

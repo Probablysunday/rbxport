@@ -401,7 +401,8 @@ fn write_changes_recovered(
 
 /// `export.pdb` with the device panel's changes applied.
 ///
-/// The colour comments and the device name live in both databases.
+/// The colour comments, the device name and the Category and Sort choices
+/// live in both databases.
 /// rekordbox renames a colour comment in `export.pdb` too, and a player reads
 /// its names from there [OBS 7.2.11]. The `property` row carries the device
 /// name beside the Device Library background colour [OBS 7.2.14]. A table
@@ -416,6 +417,14 @@ fn updated_pdb(bytes: &[u8], library: Option<&StickSettings>, background: Option
             .collect();
         if let Some(replaced) = rbl_pdb::build::replace_single_page_table(&next, 6, &rows) {
             next = replaced;
+        }
+        // The Category and Sort tabs: a player reading the Device Library
+        // offers what these two tables say.
+        let (categories, sorts) = rbl_export::menu_tables(library);
+        for (page_type, rows) in [(17, categories), (18, sorts)] {
+            if let Some(replaced) = rbl_pdb::build::replace_single_page_table(&next, page_type, &rows) {
+                next = replaced;
+            }
         }
     }
     let property = rbl_pdb::Pdb::parse(&next).ok().and_then(|pdb| pdb.property());
@@ -600,6 +609,26 @@ mod tests {
         write_changes(stick.path(), &back, &blue).unwrap();
         assert_eq!(read(stick.path()).device_library_background, Some(7));
         assert_eq!(std::fs::read(&library_path).unwrap(), library_before);
+    }
+
+    #[test]
+    fn a_sort_option_made_active_reaches_the_device_library() {
+        let stick = tempfile::tempdir().unwrap();
+        assert!(rbl_export::create_library(stick.path(), None, &[], None).unwrap());
+        let current = read(stick.path());
+        let mut next = current.clone();
+        let sorts = &mut next.library.as_mut().unwrap().sorts;
+        let date_added = sorts.iter_mut().find(|s| s.name == "DATE ADDED").unwrap();
+        date_added.visible = true;
+        date_added.seq = 8;
+        write_changes(stick.path(), &current, &next).unwrap();
+
+        // The player reads the Device Library's sort table, page type 18.
+        let bytes = std::fs::read(stick.path().join("PIONEER/rekordbox/export.pdb")).unwrap();
+        let pdb = rbl_pdb::Pdb::parse(&bytes).unwrap();
+        let table = pdb.table(rbl_pdb::PageType::HistoryEntries).unwrap();
+        let row = pdb.rows(table).into_iter().find(|r| pdb.u2_at(*r, 0) == 22).unwrap();
+        assert_eq!((pdb.u1_at(row, 4), pdb.u1_at(row, 5)), (0, 8), "shown, eighth");
     }
 
     #[test]

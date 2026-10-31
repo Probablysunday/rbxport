@@ -1855,8 +1855,7 @@ fn export_cancellable_inner(
         entries: &entry_rows,
         artwork: &artwork_rows,
         history: &before.history,
-        colors: settings.as_ref().or(defaults).map_or(&[], |s| &s.colors),
-        device_name: settings.as_ref().or(defaults).map_or("", |s| s.device_name.as_str()),
+        library: settings.as_ref().or(defaults),
         background: before.legacy_background,
     });
     report.pdb_bytes = pdb.len();
@@ -2036,6 +2035,24 @@ fn export_cancellable_inner(
     Ok(report)
 }
 
+/// `export.pdb`'s browse categories (page type 17) and sort options (18) as
+/// the device's Category and Sort tabs set them. A player reading the Device
+/// Library offers what these say, not what `exportLibrary.db` says.
+#[must_use]
+pub fn menu_tables(settings: &rbl_onelibrary::settings::StickSettings) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+    fn seq_of(slots: &[rbl_onelibrary::settings::MenuSlot], item: u16) -> Option<u16> {
+        slots
+            .iter()
+            .find(|s| s.visible && s.menu_item == i64::from(item))
+            .map(|s| u16::try_from(s.seq).unwrap_or(0))
+    }
+    let sub_column = settings.sub_column.and_then(|item| u16::try_from(item).ok());
+    (
+        rbl_pdb::reference::categories(|item| seq_of(&settings.categories, item)),
+        rbl_pdb::reference::sorts(|item| seq_of(&settings.sorts, item), sub_column),
+    )
+}
+
 /// The rows of the tables an export fills from the library; every other
 /// table rekordbox writes is the same on every stick.
 struct PdbTables<'a> {
@@ -2050,9 +2067,10 @@ struct PdbTables<'a> {
     /// Empty on a stick with no artwork, and on a blank one.
     artwork: &'a [Vec<u8>],
     history: &'a [snapshot::History],
-    colors: &'a [rbl_onelibrary::settings::ColorName],
-    /// `property.deviceName` in `exportLibrary.db`; the PDB carries a copy.
-    device_name: &'a str,
+    /// The stick's settings: its colour names, device name, and the browse
+    /// categories and sort options the player offers. `None` gives the
+    /// reference rows.
+    library: Option<&'a rbl_onelibrary::settings::StickSettings>,
     /// "Background Color : Device Library", carried from the stick.
     background: u8,
 }
@@ -2085,7 +2103,7 @@ fn build_pdb(tables: &PdbTables<'_>) -> Vec<u8> {
             .enumerate()
             .map(|(i, name)| {
                 let id=u16::try_from(i).unwrap_or(0)+1;
-                let name=tables.colors.iter().find(|c|c.id==i64::from(id)).map_or(*name,|c|c.name.as_str());
+                let name=tables.library.and_then(|l| l.colors.iter().find(|c|c.id==i64::from(id))).map_or(*name,|c|c.name.as_str());
                 color_row(id,name)
             })
             .collect::<Vec<_>>(),
@@ -2112,11 +2130,14 @@ fn build_pdb(tables: &PdbTables<'_>) -> Vec<u8> {
     }
     let constant = |rows: &[&[u8]]| rows.iter().map(|row| row.to_vec()).collect::<Vec<_>>();
     file.add_table(16, &constant(reference::COLUMNS));
-    file.add_table(17, &constant(reference::HISTORY_PLAYLISTS));
-    file.add_table(18, &constant(reference::HISTORY_ENTRIES));
+    let (categories, sorts) = tables
+        .library
+        .map_or_else(|| (constant(reference::CATEGORIES), constant(reference::SORTS)), menu_tables);
+    file.add_table(17, &categories);
+    file.add_table(18, &sorts);
     // The local day, as rekordbox dates the export where the machine is.
     let property = rbl_pdb::rows::PdbProperty {
-        device_name: tables.device_name.to_owned(),
+        device_name: tables.library.map_or_else(String::new, |l| l.device_name.clone()),
         contents: u32::try_from(tables.tracks.len()).unwrap_or(u32::MAX),
         created_date: rbl_core::time::local_date(),
         background_color: tables.background,
@@ -2184,8 +2205,7 @@ pub fn create_library_with_root(
         entries: &[],
         artwork: &[],
         history: &[],
-        colors: defaults.map_or(&[], |s| &s.colors),
-        device_name: defaults.map_or("", |s| s.device_name.as_str()),
+        library: defaults,
         background: 0,
     });
     rbl_core::durable::write(&db_dir.join("export.pdb"), &pdb)?;
