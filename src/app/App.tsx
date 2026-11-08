@@ -22,7 +22,7 @@ import { useCommands } from "@/store/useCommands";
  */
 import type { TrackSearchField } from "@/lib/search";
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { droppedFilePaths, getBackend, subscribeNativeFileDrops } from "@/ipc/client";
 import type {
   Backend, DeckId, DeckTick, Device, ImportReport, LibraryProblem, LibrarySummary, RowDto, SortColumn, TrackField, TreeNode, ViewSpec,
@@ -2396,15 +2396,27 @@ function AppBody() {
     };
   }, []);
 
-  // Native menu clicks.
+  // Native menu clicks. Listened to once, through a ref to the latest
+  // handler: re-listening each time it changes (every edit, for Undo's
+  // state) left a moment with no listener, and a click then was lost.
+  const runMenuRef = useRef(runMenu);
+  useLayoutEffect(() => {
+    runMenuRef.current = runMenu;
+  }, [runMenu]);
   useEffect(() => {
     let stop: (() => void) | undefined;
+    let live = true;
     void (async () => {
       const backend = await getBackend();
-      stop = backend.onMenu(runMenu);
+      const unlisten = backend.onMenu((id) => runMenuRef.current(id));
+      if (live) stop = unlisten;
+      else unlisten();
     })();
-    return () => stop?.();
-  }, [runMenu]);
+    return () => {
+      live = false;
+      stop?.();
+    };
+  }, []);
 
   // The keyboard: the shell's own shortcuts, and the menu accelerators the
   // webview keeps from the native menu on Windows.

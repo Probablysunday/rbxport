@@ -44,8 +44,8 @@ test("the rows are on rekordbox's 25pt pitch in its 12.5px face", async ({ page 
   const menu = await openTreeMenu(page);
   const items = await rows(menu);
   // Thirteen in the capture, less the three cloud rows and Collaborative
-  // playlist, plus Rename.
-  expect(items).toHaveLength(10);
+  // playlist, plus Rename and Remove Duplicates.
+  expect(items).toHaveLength(11);
   for (const item of items) {
     expect(item.height, item.label).toBe(25);
     expect(item.fontSize, item.label).toBe("12.5px");
@@ -79,10 +79,10 @@ test("the panel is a point of padding inside a one-point hairline", async ({ pag
   expect(panel.paddingBottom).toBe("1px");
   expect(panel.paddingLeft).toBe("0px");
   expect(panel.border).toBe("1px");
-  // Ten rows, six separators, the padding and the hairline. The capture's
+  // Eleven rows, six separators, the padding and the hairline. The capture's
   // panel is 812px tall at 2x: four cloud rows and a separator shorter, one
-  // Rename taller.
-  expect(panel.height).toBe(10 * 25 + 6 * 11 + 2 + 2);
+  // Rename and one Remove Duplicates taller.
+  expect(panel.height).toBe(11 * 25 + 6 * 11 + 2 + 2);
 
   const separators = await menu.evaluate((m) => {
     const box = m.getBoundingClientRect();
