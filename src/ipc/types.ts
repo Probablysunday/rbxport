@@ -1921,7 +1921,11 @@ export interface Edits {
   addToTagList(tracks: string[]): Promise<number>;
   removeFromTagList(tracks: string[]): Promise<number>;
   clearTagList(): Promise<number>;
-  removeTracksFromPlaylist(playlist: string, tracks: string[]): Promise<EditHistoryState>;
+  /**
+   * `entries`, the rows' `trackNo`, takes off only those copies of a track
+   * the playlist lists more than once; without it every copy goes.
+   */
+  removeTracksFromPlaylist(playlist: string, tracks: string[], entries?: number[]): Promise<EditHistoryState>;
   /** Takes the later copies of each track listed twice off; refused when none is. */
   removePlaylistDuplicates(playlist: string): Promise<EditHistoryState>;
   /** Reset DJ Play Count: back to zero on each track. */

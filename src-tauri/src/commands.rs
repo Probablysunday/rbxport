@@ -3801,9 +3801,15 @@ pub async fn remove_tracks_from_playlist<R: tauri::Runtime>(
     state: State<'_, Arc<AppState>>,
     playlist: String,
     tracks: Vec<String>,
+    entries: Option<Vec<i64>>,
 ) -> AppResult<EditHistoryDto> {
     recorded_edit(app, state, "remove_tracks_from_playlist", Touched::Playlists, "Remove Tracks from Playlist", move |w| {
-        w.remove_tracks_with_undo(&playlist, &tracks).map(|(_, edit)| LibraryEdit::RemovePlaylistTracks(edit))
+        // Entries name the copies meant when a track is listed more than once.
+        match &entries {
+            Some(entries) => w.remove_entries_with_undo(&playlist, &tracks, entries),
+            None => w.remove_tracks_with_undo(&playlist, &tracks),
+        }
+        .map(|(_, edit)| LibraryEdit::RemovePlaylistTracks(edit))
     }).await
 }
 

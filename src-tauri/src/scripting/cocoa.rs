@@ -862,7 +862,7 @@ async fn add_work(playlist: u64, tracks: Vec<u64>) -> Result<ScriptValue, Script
 async fn remove_work(playlist: u64, tracks: Vec<u64>) -> Result<ScriptValue, ScriptError> {
     let app = app()?;
     let tracks = tracks.iter().map(u64::to_string).collect();
-    done(crate::commands::remove_tracks_from_playlist(app.clone(), app.state(), playlist.to_string(), tracks).await)
+    done(crate::commands::remove_tracks_from_playlist(app.clone(), app.state(), playlist.to_string(), tracks, None).await)
 }
 
 /// Makes a library change a key-value setter or container asked for, and

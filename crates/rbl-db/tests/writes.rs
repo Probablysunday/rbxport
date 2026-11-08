@@ -424,6 +424,23 @@ fn adding_a_track_already_present_can_add_it_again() {
 }
 
 #[test]
+fn removing_one_entry_of_a_repeated_track_leaves_its_other_copies() {
+    let mut f = fixture();
+    let list = f.writer.create_playlist("Set", ROOT).unwrap();
+    f.writer.add_tracks(&list, &[track_id(0), track_id(1)]).unwrap();
+    f.writer.add_tracks_allowing(&list, &[track_id(0)], true).unwrap();
+    let before = f.order(&list);
+
+    // The third entry: the second copy of track 0.
+    let (_, edit) = f.writer.remove_entries_with_undo(&list, &[track_id(0)], &[3]).unwrap();
+    assert_eq!(f.order(&list), vec![track_id(0), track_id(1)]);
+    f.writer.undo_track_removal(&edit).unwrap();
+    assert_eq!(f.order(&list), before);
+    // An entry number that holds another track takes nothing off.
+    assert!(f.writer.remove_entries_with_undo(&list, &[track_id(0)], &[2]).is_err());
+}
+
+#[test]
 fn removing_duplicates_keeps_each_tracks_first_entry_and_undoes() {
     let mut f = fixture();
     let list = f.writer.create_playlist("Set", ROOT).unwrap();

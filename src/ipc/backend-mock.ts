@@ -1060,9 +1060,12 @@ export function createMockBackend(options: MockOptions = {}): Backend {
       tagList.length = 0;
       return tagListChanged();
     },
-    removeTracksFromPlaylist: (playlist, tracks) => {
+    removeTracksFromPlaylist: (playlist, tracks, entries) => {
       const before = [...membersOf(playlist)];
-      const current = membersOf(playlist).filter((t) => !tracks.includes(t));
+      // Entries are 1-based positions, as the rows' `trackNo` gives them.
+      const current = entries
+        ? before.filter((t, i) => !(tracks.includes(t) && entries.includes(i + 1)))
+        : before.filter((t) => !tracks.includes(t));
       membership.set(playlist, current);
       return recordEdit({
         label: "Remove Tracks from Playlist",

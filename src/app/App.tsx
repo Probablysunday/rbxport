@@ -2102,23 +2102,23 @@ function AppBody() {
 
   // Asked first, as rekordbox asks, though Edit › Undo can bring them back.
   const removeTracksFromPlaylist = useCallback(
-    async (playlist: string, ids: readonly string[]): Promise<boolean> => {
+    async (playlist: string, ids: readonly string[], entries?: readonly number[]): Promise<boolean> => {
       if (ids.length === 0) return false;
       const sure = await confirmRemoval(t(
         "Are you sure you want to remove the selected track(s) from the playlist?\nTrack(s) will be removed from the playlists of all synced devices.",
       ));
       if (!sure) return false;
       return writeNow(async (backend) => {
-        await backend.edits.removeTracksFromPlaylist(playlist, [...ids]);
+        await backend.edits.removeTracksFromPlaylist(playlist, [...ids], entries ? [...entries] : undefined);
         return `Removed ${ids.length} track${ids.length === 1 ? "" : "s"}.`;
       });
     },
     [confirmRemoval, t, writeNow],
   );
   const removeFromPlaylist = useCallback(
-    (ids: readonly string[]): Promise<boolean> => {
+    (ids: readonly string[], entries?: readonly number[]): Promise<boolean> => {
       if (spec.source.kind !== "playlist") return Promise.resolve(false);
-      return removeTracksFromPlaylist(spec.source.id, ids);
+      return removeTracksFromPlaylist(spec.source.id, ids, entries);
     },
     [removeTracksFromPlaylist, spec.source],
   );

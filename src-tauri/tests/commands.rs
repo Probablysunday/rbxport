@@ -516,7 +516,7 @@ fn a_playlist_is_made_filled_reordered_renamed_moved_and_deleted() {
     ))
     .unwrap();
     assert_eq!(ids(&s.playlist_rows(&friday.id)), [t1.as_str(), t2.as_str(), t3.as_str()]);
-    run(commands::remove_tracks_from_playlist(s.handle(), s.state(), friday.id.clone(), vec![t2]))
+    run(commands::remove_tracks_from_playlist(s.handle(), s.state(), friday.id.clone(), vec![t2], None))
         .unwrap();
     let rows = s.playlist_rows(&friday.id);
     assert_eq!(ids(&rows), [t1.as_str(), t3.as_str()]);
@@ -739,7 +739,7 @@ fn library_history_names_and_reverses_each_supported_edit() {
         None
     )).unwrap();
     let removed = run(commands::remove_tracks_from_playlist(
-        s.handle(), s.state(), playlist.id.clone(), vec![tracks[1].clone()],
+        s.handle(), s.state(), playlist.id.clone(), vec![tracks[1].clone()], None,
     )).unwrap();
     assert_eq!(removed.undo_label.as_deref(), Some("Remove Tracks from Playlist"));
     assert_eq!(ids(&s.playlist_rows(&playlist.id)), [tracks[0].as_str(), tracks[2].as_str()]);

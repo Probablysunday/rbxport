@@ -859,3 +859,27 @@ test("Remove Duplicates takes the extra copies off a playlist, and Undo puts the
   await chooseFromTreeMenu(page, item(page, "Hardstyle"), "Remove Duplicates");
   await expect(page.getByRole("contentinfo")).toContainText("This playlist has no track in it twice.");
 });
+
+test("a track listed twice lights and removes only the copy picked", async ({ page }) => {
+  await open(page);
+  await item(page, "Melodic Vox").click();
+  const firstTitle = (await rows(page).first().locator('[data-col="title"]').innerText()).trim();
+  await rows(page).first().click({ button: "right" });
+  await page.getByRole("menu", { name: "Track" }).getByRole("menuitem", { name: "Add To Playlist" }).hover();
+  await page.getByRole("menuitem", { name: "Melodic Vox" }).first().click();
+  await page.getByRole("alertdialog", { name: "Duplicate tracks" }).getByRole("button", { name: "Add duplicates" }).click();
+  await expect(page.getByTestId("browser-title")).toContainText("Melodic Vox (31 Tracks)");
+
+  // The copy on the end: clicking it lights it alone, not the first entry too.
+  const copy = rows(page).filter({ hasText: firstTitle }).last();
+  await copy.scrollIntoViewIfNeeded();
+  await copy.click();
+  await expect(page.getByRole("row", { selected: true })).toHaveCount(1);
+  await expect(page.getByRole("row", { selected: true })).toContainText("31");
+
+  await copy.click({ button: "right" });
+  await page.getByRole("menu", { name: "Track" }).getByRole("menuitem", { name: "Remove from Playlist" }).click();
+  await expect(page.getByTestId("browser-title")).toContainText("Melodic Vox (30 Tracks)");
+  // The first entry is still the track it was.
+  await expect(rows(page).first().locator('[data-col="title"]')).toHaveText(firstTitle);
+});

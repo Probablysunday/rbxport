@@ -63,7 +63,7 @@ const LIST_COMMANDS: ReadonlySet<Action> = new Set<Action>([
  * A removal the list asks for: resolves true once the tracks are gone, false
  * when the person declined or the write was refused.
  */
-type RemoveTracks = (ids: readonly string[]) => Promise<boolean>;
+type RemoveTracks = (ids: readonly string[], entries?: readonly number[]) => Promise<boolean>;
 /** One frozen empty list, so a row without cues does not re-render for a new one. */
 const NO_CUES: RowDto["hotCues"] = [];
 /** macOS, where a Control-click is the context menu's press, not a toggle. */
@@ -1067,6 +1067,14 @@ export const TrackTable = memo(function TrackTable({
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<SelectionState>(emptySelection);
+  // One track selected by its row: only that row is lit and acted on, so a
+  // playlist listing the track twice shows, and removes, the copy picked.
+  const soleIndex = selection.ids.size === 1 && selection.anchorIndex !== null
+    && view.rowAt(selection.anchorIndex)?.id === [...selection.ids][0] ? selection.anchorIndex : null;
+  const soleEntry = (): number[] | undefined => {
+    const row = soleIndex === null ? undefined : view.rowAt(soleIndex);
+    return row && spec.source.kind === "playlist" ? [row.trackNo] : undefined;
+  };
   const [dragKey, setDragKey] = useState<ColumnKey | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; target: ColumnKey } | null>(null);
   // Live during a header-edge drag. A ref, not state: this updates per
@@ -1724,8 +1732,12 @@ export const TrackTable = memo(function TrackTable({
     (index: number, row: RowDto, at: { x: number; y: number }) => {
       // Right-clicking a row the selection does not hold selects it first, as
       // every list does: otherwise the menu acts on something else.
+      // One track selected and another copy of it clicked: that copy is the
+      // one meant, for a playlist that lists the track twice.
       setSelection((current) =>
-        current.ids.has(row.id) ? current : { ids: new Set([row.id]), anchorIndex: index },
+        current.ids.has(row.id)
+          ? current.ids.size === 1 ? { ...current, anchorIndex: index, cursorIndex: index } : current
+          : { ids: new Set([row.id]), anchorIndex: index },
       );
       setTrackMenu({ ...at, row });
     },
@@ -1897,7 +1909,7 @@ export const TrackTable = memo(function TrackTable({
     if (remove === undefined) return;
     const ids = [...selection.ids];
     removing.current = true;
-    void remove(ids)
+    void remove(ids, action === "removeFromPlaylist" ? soleEntry() : undefined)
       .then((removed) => {
         // The removed rows are gone; a second press must not name them again.
         if (!removed) return;
@@ -2265,7 +2277,7 @@ export const TrackTable = memo(function TrackTable({
                 trafficKey={trafficKey}
                 trafficReach={preferences.view.trafficLight}
                 top={item.start - COL_HEADER_H}
-                selected={row ? selection.ids.has(row.id) : false}
+                selected={row ? selection.ids.has(row.id) && (soleIndex === null || item.index === soleIndex) : false}
                 onSelect={handleSelect}
                 onOpen={handleOpen}
                 onMenu={openTrackMenu}
@@ -2353,7 +2365,7 @@ export const TrackTable = memo(function TrackTable({
                 onShowInFinder?.(trackMenu.row);
                 break;
               case "removeFromPlaylist":
-                void onRemoveFromPlaylist?.(ids);
+                void onRemoveFromPlaylist?.(ids, soleEntry());
                 break;
               case "removeFromHistory":
                 void onRemoveFromHistory?.(ids);

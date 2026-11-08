@@ -1602,6 +1602,33 @@ impl Writer {
         Ok((changed, edit))
     }
 
+    /// Takes particular entries of a playlist off, named by their `TrackNo`,
+    /// for a track listed more than once where only one copy is meant. An
+    /// entry whose track is not among `contents` is left alone.
+    pub fn remove_entries_with_undo(&mut self, playlist: &str, contents: &[String], track_nos: &[i64]) -> Result<(Changed, PlaylistTrackRemoval)> {
+        refuse_if_smart(self.library.connection(), playlist)?;
+        let conn = self.library.connection();
+        let mut statement = conn.prepare(
+            "SELECT ID, ContentID, TrackNo FROM djmdSongPlaylist
+             WHERE PlaylistID = ?1 AND rb_local_deleted = 0 ORDER BY TrackNo, ID",
+        )?;
+        let memberships: Vec<(String, String, i64)> = statement
+            .query_map(params![playlist], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        drop(statement);
+        let removed: Vec<String> = memberships.iter()
+            .filter(|(_, content, no)| contents.contains(content) && track_nos.contains(no))
+            .map(|(id, _, _)| id.clone())
+            .collect();
+        if removed.is_empty() {
+            return Err(DbError::WriteRefused("That entry is no longer in the playlist.".to_owned()));
+        }
+        let order = memberships.into_iter().map(|(id, _, _)| id).collect();
+        let edit = PlaylistTrackRemoval { playlist: playlist.to_owned(), removed, order };
+        let changed = self.set_track_removal(&edit, true)?;
+        Ok((changed, edit))
+    }
+
     /// Takes the later copies of every track a playlist lists more than once
     /// off it, keeping each track's first entry where it is. Refused when
     /// the playlist holds no track twice, so there is nothing to undo.
