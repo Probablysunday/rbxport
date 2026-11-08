@@ -1251,6 +1251,9 @@ function AppBody() {
           const { ids: toAdd, tracks: fresh, skipped, existing } = sliced;
           update({ label: t("Adding {count} to {name}", { count: total, name }) });
           const allowDuplicates = signal.aborted ? false : await resolveDuplicates(playlistId, toAdd, name);
+          // Tracks the playlist already holds and keeps once are not counted as added.
+          const held = allowDuplicates === false && !signal.aborted
+            ? (await backend.edits.playlistDuplicates(playlistId, toAdd)).length : 0;
           let added = 0;
           for (const slice of slices(toAdd, ADD_SLICE)) {
             if (signal.aborted || allowDuplicates === null) break;
@@ -1258,13 +1261,16 @@ function AppBody() {
             added += slice.length;
             update({ done: total + added, pendingRows: toAdd.length - added });
           }
-          setTree(await backend.playlistTree());
+          setTree(withSources(await backend.playlistTree()));
           if (analysisPrefs.auto && fresh.length > 0) analysis.add(fresh);
           const already = existing > 0 ? `; ${existing} already in the library` : "";
           const left = skippedTail(skipped);
-          report(signal.aborted
-            ? `Stopped: ${noun(added)} added to ${name}${left}${already}.`
-            : `Added ${noun(added)} to ${name}${left}${already}.`);
+          const count = Math.max(0, added - held);
+          report(allowDuplicates === null
+            ? `Nothing added to ${name}${left}${already}.`
+            : signal.aborted
+              ? `Stopped: ${noun(count)} added to ${name}${left}${already}.`
+              : `Added ${noun(count)} to ${name}${left}${already}.`);
         },
       });
     },
@@ -2208,7 +2214,7 @@ function AppBody() {
         const total = imported.imported + imported.skipped.length;
         const already = imported.existing.length > 0 ? `; ${imported.existing.length} already in the library` : "";
         report(`Imported ${imported.imported} of ${total} files${skippedTail(imported.skipped)}${already}.`);
-        setTree(await backend.playlistTree());
+        setTree(withSources(await backend.playlistTree()));
         // Auto Analysis in Preferences: what just landed goes straight into
         // the queue, as rekordbox does unless told not to.
         if (analysisPrefs.auto && imported.tracks.length > 0) analysis.add(imported.tracks);
@@ -2234,7 +2240,7 @@ function AppBody() {
   const importXmlFromMenu = useCallback(async (source: "rekordbox" | "itunes" = "rekordbox") => {
     const { importCollection } = await import("@/lib/xmlImport");
     await importCollection(source, t, setNote, async (backend, imported) => {
-      setTree(await backend.playlistTree());
+      setTree(withSources(await backend.playlistTree()));
       if (analysisPrefs.auto && imported.tracks.length > 0) analysis.add(imported.tracks);
     });
   }, [t, analysisPrefs.auto, analysis]);
