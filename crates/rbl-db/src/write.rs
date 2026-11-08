@@ -1602,28 +1602,32 @@ impl Writer {
         Ok((changed, edit))
     }
 
-    /// Takes particular entries of a playlist off, named by their `TrackNo`,
-    /// for a track listed more than once where only one copy is meant. An
-    /// entry whose track is not among `contents` is left alone.
-    pub fn remove_entries_with_undo(&mut self, playlist: &str, contents: &[String], track_nos: &[i64]) -> Result<(Changed, PlaylistTrackRemoval)> {
+    /// Takes particular entries of a playlist off, named by their position in
+    /// it from 1 (what the browser's # column shows), for a track listed more
+    /// than once where only one copy is meant. Positions, not stored
+    /// `TrackNo` values, so a gap another writer left cannot shift the aim.
+    /// An entry whose track is not among `contents` is left alone.
+    pub fn remove_entries_with_undo(&mut self, playlist: &str, contents: &[String], positions: &[i64]) -> Result<(Changed, PlaylistTrackRemoval)> {
         refuse_if_smart(self.library.connection(), playlist)?;
         let conn = self.library.connection();
         let mut statement = conn.prepare(
-            "SELECT ID, ContentID, TrackNo FROM djmdSongPlaylist
+            "SELECT ID, ContentID FROM djmdSongPlaylist
              WHERE PlaylistID = ?1 AND rb_local_deleted = 0 ORDER BY TrackNo, ID",
         )?;
-        let memberships: Vec<(String, String, i64)> = statement
-            .query_map(params![playlist], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+        let memberships: Vec<(String, String)> = statement
+            .query_map(params![playlist], |row| Ok((row.get(0)?, row.get(1)?)))?
             .collect::<rusqlite::Result<_>>()?;
         drop(statement);
-        let removed: Vec<String> = memberships.iter()
-            .filter(|(_, content, no)| contents.contains(content) && track_nos.contains(no))
-            .map(|(id, _, _)| id.clone())
+        let removed: Vec<String> = memberships.iter().enumerate()
+            .filter(|(at, (_, content))| {
+                contents.contains(content) && positions.contains(&i64::try_from(at + 1).unwrap_or(i64::MAX))
+            })
+            .map(|(_, (id, _))| id.clone())
             .collect();
         if removed.is_empty() {
             return Err(DbError::WriteRefused("That entry is no longer in the playlist.".to_owned()));
         }
-        let order = memberships.into_iter().map(|(id, _, _)| id).collect();
+        let order = memberships.into_iter().map(|(id, _)| id).collect();
         let edit = PlaylistTrackRemoval { playlist: playlist.to_owned(), removed, order };
         let changed = self.set_track_removal(&edit, true)?;
         Ok((changed, edit))

@@ -438,6 +438,12 @@ fn removing_one_entry_of_a_repeated_track_leaves_its_other_copies() {
     assert_eq!(f.order(&list), before);
     // An entry number that holds another track takes nothing off.
     assert!(f.writer.remove_entries_with_undo(&list, &[track_id(0)], &[2]).is_err());
+
+    // A gap in TrackNo (another writer's) does not shift which copy is meant:
+    // the third entry is still the one at the third position.
+    f.conn().execute("UPDATE djmdSongPlaylist SET TrackNo = TrackNo * 10 WHERE PlaylistID = ?1", [&list]).unwrap();
+    f.writer.remove_entries_with_undo(&list, &[track_id(0)], &[3]).unwrap();
+    assert_eq!(f.order(&list), vec![track_id(0), track_id(1)]);
 }
 
 #[test]
