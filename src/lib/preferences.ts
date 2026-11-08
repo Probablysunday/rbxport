@@ -106,6 +106,13 @@ export interface ViewPreferences {
   vuMeter: VuMeterMode;
   /** Media Player › Display Tempo slider. */
   tempoSlider: boolean;
+  /**
+   * Load lock: in the two-deck layouts a playing deck takes no new track from
+   * the browser, so a stray double-click cannot replace it mid-mix. Off by
+   * default: loading onto a playing synced deck, which carries on in phase,
+   * is a way of mixing too.
+   */
+  loadLock: boolean;
   /** Show Tooltips. */
   tooltips: boolean;
   /** Browse › FontSize, as a slider stop 0 to 4. */
@@ -345,6 +352,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
     showBpmChanges: true,
     vuMeter: "normal",
     tempoSlider: false,
+    loadLock: false,
     tooltips: false,
     browseFontSize: BROWSE_SCALE_DEFAULT,
     browseBold: false,
@@ -522,6 +530,7 @@ export function sanitisePreferences(value: unknown): Preferences {
       showBpmChanges: bool(view.showBpmChanges, d.view.showBpmChanges),
       vuMeter: oneOf(view.vuMeter, ["normal", "fabulous"] as const, d.view.vuMeter),
       tempoSlider: bool(view.tempoSlider, d.view.tempoSlider),
+      loadLock: bool(view.loadLock, d.view.loadLock),
       tooltips: bool(view.tooltips, d.view.tooltips),
       browseFontSize: step(view.browseFontSize, d.view.browseFontSize),
       browseBold: bool(view.browseBold, d.view.browseBold),

@@ -1323,7 +1323,21 @@ function AppBody() {
    * is there, else shows `kPlayerOperateErrorLoadMissingFile`, "Load error.
    * The file could not be found.", @0x101abb0f4 and returns].
    */
-  const loadOnto = useEventCallback((set: (row: RowDto | null) => void, row: RowDto | null) => {
+  // Which deck is playing, as each reports it: a ref, since nothing is drawn
+  // from it and a re-render per play press would be for nothing.
+  const decksPlaying = useRef({ a: false, b: false });
+  const reportPlaying = useMemo(() => ({
+    a: (playing: boolean) => { decksPlaying.current.a = playing; },
+    b: (playing: boolean) => { decksPlaying.current.b = playing; },
+  }), []);
+  const loadOnto = useEventCallback((deck: "a" | "b", set: (row: RowDto | null) => void, row: RowDto | null, force = false) => {
+    // Load lock: a playing deck in a two-deck layout keeps its track, so a
+    // stray double-click cannot replace it mid-mix. The deck's own skip and
+    // the end of a track load regardless (`force`).
+    if (row && !force && viewPrefs.loadLock && deckCount(layout) >= 2 && decksPlaying.current[deck]) {
+      refuse(t("Deck {deck} is playing. Pause it to load another track.", { deck: deck === "a" ? "A" : "B" }));
+      return;
+    }
     if (row?.missing === true) {
       refuse(t("Load error. The file could not be found."));
       return;
@@ -1345,8 +1359,8 @@ function AppBody() {
     }
   });
   const deckLoaders = useMemo(() => ({
-    a: (row: RowDto | null) => loadOnto(setPlayerTrack, row),
-    b: (row: RowDto | null) => loadOnto(setPlayerTrackB, row),
+    a: (row: RowDto | null, force?: boolean) => loadOnto("a", setPlayerTrack, row, force),
+    b: (row: RowDto | null, force?: boolean) => loadOnto("b", setPlayerTrackB, row, force),
   }), [loadOnto]);
   // The tracks an analysis is drawing for a deck, so the deck shows the
   // waveform before the analysis is over.
@@ -1414,11 +1428,11 @@ function AppBody() {
    * matches.
    */
   const continuation = useRef<{ position: ListPosition; trackId: string } | null>(null);
-  const openInDeckA = useCallback((row: RowDto | null, from?: ListPosition) => {
+  const openInDeckA = useCallback((row: RowDto | null, from?: ListPosition, force?: boolean) => {
     continuation.current = row && from && row.missing !== true
       ? { position: from, trackId: row.id }
       : null;
-    deckLoaders.a(row);
+    deckLoaders.a(row, force);
   }, [deckLoaders]);
 
   /**
@@ -1448,7 +1462,7 @@ function AppBody() {
       const [row] = await backend.fetchRows(handle.viewId, index, 1);
       // Something else was loaded while the list was read.
       if (!row || continuation.current !== from) return;
-      openInDeckA(row, { spec: listed, index });
+      openInDeckA(row, { spec: listed, index }, true);
       if (!play || row.missing === true) return;
       await whenLoaded("a", row.id);
       setPlaying("a", true);
@@ -3159,6 +3173,7 @@ function AppBody() {
             onSyncToggle={deckCount(layout) > 1 ? toggleSync.a : undefined}
             leaderBpmX100={syncMaster === "a" ? null : leaderBpmX100}
             onPlayingBpm={reportPlayingBpm.a}
+            onPlayingChange={reportPlaying.a}
             publishGridFollow={publishGridFollow.a}
             onGridNudge={gridNudged.a}
             onKeyShift={reportKeyShift.a}
@@ -3199,6 +3214,7 @@ function AppBody() {
               onSyncToggle={toggleSync.b}
               leaderBpmX100={syncMaster === "b" ? null : leaderBpmX100}
               onPlayingBpm={reportPlayingBpm.b}
+              onPlayingChange={reportPlaying.b}
               publishGridFollow={publishGridFollow.b}
               onGridNudge={gridNudged.b}
               onKeyShift={reportKeyShift.b}

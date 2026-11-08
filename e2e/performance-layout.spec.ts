@@ -180,3 +180,23 @@ test("a phrase label is whole, shortened or left out, never clipped", async ({ p
     expect(blocks.some((b) => b.text !== ""), `${width}px`).toBe(true);
   }
 });
+
+test("with Load lock on, a playing deck keeps its track until it is paused", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rbl.preferences", JSON.stringify({ view: { loadLock: true } })));
+  const { a, b } = await performance(page);
+  const titles = page.locator('[role="gridcell"][data-col="title"]');
+  const loaded = a.getByTestId("player-title");
+  const first = (await loaded.innerText()).trim();
+  await a.getByRole("button", { name: "Play", exact: true }).click();
+  await titles.nth(4).dblclick();
+  await expect(page.getByRole("contentinfo")).toContainText("Deck A is playing. Pause it to load another track.");
+  await expect(loaded).toHaveText(first);
+  // The other deck is not playing, and takes a track as before.
+  const before = (await b.getByTestId("player-title").innerText()).trim();
+  await titles.nth(5).dragTo(b);
+  await expect(b.getByTestId("player-title")).not.toHaveText(before);
+  // Paused, deck A loads again.
+  await a.getByRole("button", { name: "Pause", exact: true }).click();
+  await titles.nth(4).dblclick();
+  await expect(loaded).toHaveText((await titles.nth(4).innerText()).trim());
+});

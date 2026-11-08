@@ -241,6 +241,8 @@ export interface PlayerProps {
   leaderBpmX100?: number | null;
   /** What this deck is playing at, for the shell to hand to a synced deck. */
   onPlayingBpm?: ((bpmX100: number | null) => void) | undefined;
+  /** Whether this deck is playing, for the shell's load lock. */
+  onPlayingChange?: ((playing: boolean) => void) | undefined;
   /** This deck's key shift in semitones, for the shell's Traffic Light. */
   onKeyShift?: ((semitones: number) => void) | undefined;
   /** KEY SYNC held on, which the shell holds as it holds BEAT SYNC. */
@@ -921,7 +923,7 @@ export const Player = memo(function Player({
   simple = false, transportSlot, flipped = false, dual = false, sideBySide = false, detailSlot, publishZoom,
   bars: linkedBars, onBars, jumpSize: linkedJump, onJumpSize,
   publishSync, peerSync, isMaster = false, onMaster, synced = false, onSyncToggle,
-  leaderBpmX100 = null, onPlayingBpm, onKeyShift, keySynced = false, onKeySyncToggle, keySyncShift = null, onGridNudge, publishGridFollow, readOnly = false,
+  leaderBpmX100 = null, onPlayingBpm, onPlayingChange, onKeyShift, keySynced = false, onKeySyncToggle, keySyncShift = null, onGridNudge, publishGridFollow, readOnly = false,
   drawing = false,
 }: PlayerProps) {
   const playback = usePlayback(track?.id ?? null, deck, false);
@@ -1945,6 +1947,11 @@ export const Player = memo(function Player({
   useEffect(() => {
     onPlayingBpm?.(playingBpmX100);
   }, [onPlayingBpm, playingBpmX100]);
+  useEffect(() => {
+    onPlayingChange?.(playback.playing);
+    // A deck taken off screen is not playing for the lock to keep.
+    return () => onPlayingChange?.(false);
+  }, [onPlayingChange, playback.playing]);
 
   // The key this deck sounds in moves with its key shift, and so does the
   // set of keys the Traffic Light lights against it.

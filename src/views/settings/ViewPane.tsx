@@ -246,6 +246,14 @@ export function ViewPane({ tab, onResetColumns, onResetLayout }: ViewPaneProps) 
           onChange={(waveformClick) => set({ waveformClick })}
         />
       </Section>
+      <Section title="Load lock">
+        {/* Two decks only: one deck is a preview, loaded over as you browse. */}
+        <Toggle
+          label="Don't load onto a playing deck (2 PLAYER and PERFORMANCE)"
+          checked={view.loadLock}
+          onChange={(loadLock) => set({ loadLock })}
+        />
+      </Section>
       <Section title="Traffic Light">
         {/* rekordbox's own reaches, from its tooltip: for a track in 2A,
             Same Key lights 2A; Related Key 1 adds 2B; 2 adds 1A and 3A; 3
