@@ -113,7 +113,7 @@ test("adding a track a stick playlist already holds asks Add or Skip, as rekordb
 
   // Skip: only the track it does not hold goes on.
   let asked = await addTo(2);
-  await expect(asked).toContainText("1 of the 2 selected tracks are already in Melodic Vox.");
+  await expect(asked).toContainText("1 of the 2 selected tracks is already in Melodic Vox.");
   await asked.getByRole("button", { name: "Skip duplicates" }).click();
   await expect(page.getByRole("contentinfo")).toContainText("Added to Melodic Vox.");
   await inLibrary(page, 0, "Melodic Vox").click();

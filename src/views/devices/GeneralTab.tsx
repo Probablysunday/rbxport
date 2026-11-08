@@ -125,16 +125,18 @@ interface BackgroundSelectProps {
   /** The stored value, or null when the stick has no database to hold it. */
   value: number | null;
   onChange: (value: number) => void;
+  /** Why it is greyed out, when not for want of an export. */
+  hint?: string | undefined;
 }
 
-function BackgroundSelect({ label, value, onChange }: BackgroundSelectProps) {
+function BackgroundSelect({ label, value, onChange, hint = NO_BACKGROUND_HINT }: BackgroundSelectProps) {
   const tip = useTooltip();
   const disabled = value === null;
   const current = value ?? 0;
   // A value from a newer rekordbox is shown as its number and kept.
   const unknown = current < 0 || current >= BACKGROUND_COLORS.length;
   return (
-    <label className={styles.field} title={tip(disabled ? NO_BACKGROUND_HINT : undefined)}>
+    <label className={styles.field} title={tip(disabled ? hint : undefined)}>
       <span className={styles.caption}>{label}</span>
       <select
         className={styles.select}
@@ -219,7 +221,12 @@ export function GeneralTab({
 
       <BackgroundSelect
         label="Background Color : OneLibrary"
-        value={settings.hasLibrarySettings ? settings.backgroundColorType : null}
+        // Only a stick with exportLibrary.db has this; one exported without
+        // OneLibrary reads its other settings from export.pdb.
+        value={settings.hasOneLibrary && settings.hasLibrarySettings ? settings.backgroundColorType : null}
+        hint={settings.hasDeviceLibrary && !settings.hasOneLibrary
+          ? "This device has no OneLibrary. Turn on Write OneLibrary in Preferences › USB Export and export again to set it."
+          : undefined}
         onChange={(backgroundColorType) => onChange({ ...settings, backgroundColorType })}
       />
       <BackgroundSelect
