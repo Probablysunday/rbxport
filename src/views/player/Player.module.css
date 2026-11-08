@@ -1438,6 +1438,11 @@ button.cueDelete:disabled { color: var(--c-icon-off); }
   .head .artist { display: none; }
   .head .readout { min-width: max-content; }
 }
+/* Narrower still (a 1000px window): the tabs and pads slim down so the pad
+   row keeps to its lines instead of wrapping past the deck's height. */
+@container perf-deck (max-width: 470px) {
+  .pads { --s-pad-tab-w: 60px; --s-pad-cue-w: 23px; }
+}
 
 .headTransport {
   display: flex;
