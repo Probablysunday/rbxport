@@ -8,8 +8,10 @@
   background: var(--c-modal-scrim);
 }
 .window {
-  width: 360px;
-  max-width: calc(100vw - 32px);
+  /* 360px, wider only when the buttons need it: a label never wraps. */
+  width: fit-content;
+  min-width: 360px;
+  max-width: min(480px, calc(100vw - 32px));
   padding: 16px 20px 18px;
   border: 1px solid var(--c-pref-button-border);
   border-radius: 10px;
@@ -24,6 +26,7 @@
   height: var(--s-pref-button-h);
   min-width: 96px;
   padding: 0 18px;
+  white-space: nowrap;
   border: 1px solid var(--c-pref-button-border);
   border-radius: 2px;
   background: linear-gradient(var(--c-pref-button-top), var(--c-pref-button-bottom));
