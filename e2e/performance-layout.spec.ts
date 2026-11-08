@@ -200,3 +200,26 @@ test("with Load lock on, a playing deck keeps its track until it is paused", asy
   await titles.nth(4).dblclick();
   await expect(loaded).toHaveText((await titles.nth(4).innerText()).trim());
 });
+
+test("one zoom serves both waveforms, and the overview never seeks before the track", async ({ page }) => {
+  const { a } = await performance(page);
+  // A single + RST − for the pair, not one per deck.
+  await expect(page.getByRole("group", { name: "Waveform zoom" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Zoom in" })).toHaveCount(1);
+  const spacing = (i: number) => page.getByTestId("player-detail").nth(i).evaluate((detail) => {
+    const lines = [...detail.querySelectorAll<HTMLElement>("[data-beat-ms]")].map((l) => l.getBoundingClientRect().left).sort((x, y) => x - y);
+    return lines.length > 1 ? lines[1]! - lines[0]! : 0;
+  });
+  const before = [await spacing(0), await spacing(1)];
+  await page.getByRole("button", { name: "Zoom out" }).click();
+  await expect.poll(() => spacing(0)).not.toBe(before[0]);
+  await expect.poll(() => spacing(1)).not.toBe(before[1]);
+
+  // A press at the start of the overview that drifts left lands on 0, not before it.
+  const box = (await a.getByTestId("player-overview").boundingBox())!;
+  await page.mouse.move(box.x + 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x - 30, box.y + box.height / 2, { steps: 4 });
+  await page.mouse.up();
+  await expect(a.getByTestId("player-overview")).toHaveAttribute("aria-valuenow", "0");
+});

@@ -3237,6 +3237,8 @@ function AppBody() {
             <div className={styles.waves}>
               <div className={styles.waveSlot} ref={setDetailA} />
               <div className={styles.waveSlot} ref={setDetailB} />
+              {/* One zoom for both, over the line where they meet. */}
+              <DualZoom onZoom={zoomBoth} />
             </div>
           ) : null}
           <div className={styles.playerGutter} aria-hidden />

@@ -133,6 +133,7 @@
 .decks[data-performance] > .waves { grid-area: waves; }
 .decks[data-performance] > .playerGutter { grid-area: gutter; }
 .waves {
+  position: relative;
   display: grid;
   grid-template-rows: 1fr 1fr;
   min-height: 0;

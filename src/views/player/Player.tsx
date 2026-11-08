@@ -1866,20 +1866,27 @@ export const Player = memo(function Player({
    * The overview is a scrubber: the pointer goes where you put it, and holding
    * it down drags the playhead along the track.
    */
+  // The overview is the whole track and nothing else: a press or a captured
+  // drag that strays past either end lands on that end. Unclamped, a click at
+  // the start that drifted a pixel left sought up to five seconds before it,
+  // and the detail scrolled away into the silence ahead of the track.
+  const overviewSeconds = (event: React.PointerEvent<HTMLDivElement>, box: DOMRect) =>
+    Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)) * total;
+
   const scrubOverview = (event: React.PointerEvent<HTMLDivElement>) => {
     const element = event.currentTarget;
     const box = element.getBoundingClientRect();
     if (box.width <= 0) return;
     element.setPointerCapture(event.pointerId);
     playback.scrubBegin();
-    playback.scrubTo(((event.clientX - box.left) / box.width) * total);
+    playback.scrubTo(overviewSeconds(event, box));
   };
 
   const dragOverview = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
     const box = event.currentTarget.getBoundingClientRect();
     if (box.width <= 0) return;
-    playback.scrubTo(((event.clientX - box.left) / box.width) * total);
+    playback.scrubTo(overviewSeconds(event, box));
   };
 
   /**
@@ -2498,8 +2505,8 @@ export const Player = memo(function Player({
   // The detail waveform: in the deck, or in the PERFORMANCE layout's stack.
   const detailRow = (
         <div className={styles.detailRow}>
-          {/* The two-deck layout's zoom is the shell's, one for the pair. */}
-          {dual ? null : (
+          {/* The two-deck layouts' zoom is the shell's, one for the pair. */}
+          {dual || sideBySide ? null : (
           <div className={styles.zoom}>
             <button type="button" aria-label="Zoom in" onClick={() => zoom(-1)}>+</button>
             <span className={styles.rst} aria-hidden>RST</span>
