@@ -168,3 +168,15 @@ test("controls only move when they are what was grabbed", async ({ page }) => {
   await page.keyboard.press("ArrowUp");
   await expect(tempo).toHaveAttribute("aria-valuenow", set!);
 });
+
+test("a phrase label is whole, shortened or left out, never clipped", async ({ page }) => {
+  for (const width of [1100, 1800]) {
+    await page.setViewportSize({ width, height: 900 });
+    await performance(page);
+    const blocks = await page.getByTestId("player-phrase").first().evaluate((bar) =>
+      [...bar.children].map((b) => ({ text: b.textContent ?? "", clipped: b.scrollWidth > b.clientWidth + 1 })));
+    expect(blocks.length).toBeGreaterThan(0);
+    expect(blocks.filter((b) => b.clipped), `${width}px`).toEqual([]);
+    expect(blocks.some((b) => b.text !== ""), `${width}px`).toBe(true);
+  }
+});

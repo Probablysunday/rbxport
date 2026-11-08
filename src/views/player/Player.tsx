@@ -525,12 +525,43 @@ const GridEditBoundary = memo(function GridEditBoundary({
   );
 });
 
+/** Short names for a block too narrow for the whole one: CHORUS 1 is "CH1". */
+const PHRASE_SHORT: Readonly<Record<string, string>> = {
+  INTRO: "IN", VERSE: "V", BRIDGE: "BR", CHORUS: "CH", UP: "UP", DOWN: "DN", OUTRO: "OUT",
+};
+function shortPhrase(label: string): string {
+  const [word = "", number = ""] = label.split(" ");
+  return `${PHRASE_SHORT[word] ?? word.slice(0, 2)}${number}`;
+}
+
+/** `.phraseBlock`'s padding either side, 4px each. */
+const PHRASE_LABEL_PAD = 8;
+const labelWidths = new Map<string, number>();
+let measure: CanvasRenderingContext2D | null = null;
+/**
+ * A label's width in `.phraseBlock`'s font (bold, `--f-size-xs`), read off
+ * the bar, which is there before its blocks are; measured once per label.
+ */
+function labelWidth(label: string, bar: HTMLElement): number {
+  const style = getComputedStyle(bar);
+  const font = `700 ${style.getPropertyValue("--f-size-xs").trim() || style.fontSize} ${style.fontFamily}`;
+  const key = `${font}\u0000${label}`;
+  const known = labelWidths.get(key);
+  if (known !== undefined) return known;
+  measure ??= document.createElement("canvas").getContext("2d");
+  if (!measure) return 0;
+  measure.font = font;
+  const found = measure.measureText(label).width;
+  labelWidths.set(key, found);
+  return found;
+}
+
 /**
  * The phrase bar: the track's structure, from the `PSSI` tag.
  *
- * Labelled where a block is wide enough to hold its label and left as bare
- * colour where it is not, which is what rekordbox does — a clipped "CHORU"
- * is worse than a coloured block whose shape already says what it is.
+ * Labelled where a block is wide enough to hold its label, with a short
+ * form ("CH1") where only that fits, and left as bare colour where neither
+ * does — a clipped "CHORU" is worse than either.
  */
 const PhraseBar = memo(function PhraseBar({
   phrases, totalMs, beatMs, labels = true,
@@ -544,8 +575,24 @@ const PhraseBar = memo(function PhraseBar({
 }) {
   const spans = phraseSpans(phrases, totalMs, beatMs);
   const tip = useTooltip();
+  // The bar's width and a label's, so a label goes only where it fits.
+  const bar = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const element = bar.current;
+    if (!element) return;
+    setWidth(element.clientWidth);
+    const observer = new ResizeObserver(() => setWidth(element.clientWidth));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const fits = (label: string, share: number): boolean => {
+    // Not measured yet (first paint, or a test without layout): label it.
+    if (!bar.current || width === 0) return true;
+    return labelWidth(label, bar.current) + PHRASE_LABEL_PAD <= width * share;
+  };
   return (
-    <div className={styles.phrase} aria-label="Phrase" data-testid="player-phrase">
+    <div ref={bar} className={styles.phrase} aria-label="Phrase" data-testid="player-phrase">
       {spans.map((span) => (
         <span
           key={`${span.from}-${span.label}`}
@@ -554,7 +601,8 @@ const PhraseBar = memo(function PhraseBar({
           style={{ left: `${span.from * 100}%`, width: `${(span.to - span.from) * 100}%` }}
           title={tip(span.label)}
         >
-          {labels ? span.label : ""}
+          {!labels ? "" : fits(span.label, span.to - span.from) ? span.label
+            : fits(shortPhrase(span.label), span.to - span.from) ? shortPhrase(span.label) : ""}
         </span>
       ))}
     </div>
