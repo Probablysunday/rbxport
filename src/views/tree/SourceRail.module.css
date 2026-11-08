@@ -7,6 +7,11 @@
   background: var(--c-panel);
   border-right: 1px solid var(--c-black);
   padding-top: 4px;
+  /* A short window (PERFORMANCE's decks take half of it) scrolls the rail
+     rather than cutting the Sync button off at its foot. */
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 .sources {
   display: flex;
@@ -45,4 +50,9 @@
   text-align: center;
   overflow-wrap: anywhere;
   hyphens: auto;
+}
+
+/* A short window: the buttons close up so Sync still shows at the foot. */
+@media (max-height: 780px) {
+  .button { padding: 3px 2px; gap: 1px; }
 }
