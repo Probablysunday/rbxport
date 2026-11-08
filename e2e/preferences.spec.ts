@@ -534,3 +534,34 @@ test("Browse › FontSize and Line Space apply to the playlist tree", async ({ p
   expect(height).toBe(33);
   if (base) expect(size).toBeCloseTo(base * 1.3, 1);
 });
+
+test("Advanced › Database finds duplicates and removes a copy only after asking", async ({ page }) => {
+  // A read-only library lists them but cannot remove one.
+  await open(page);
+  let dialog = await prefs(page);
+  await dialog.getByRole("tab", { name: "Advanced", exact: true }).click();
+  await dialog.getByRole("tab", { name: "Database" }).click();
+  await dialog.getByRole("button", { name: "Find duplicates" }).click();
+  let list = dialog.getByRole("list", { name: "Duplicates" });
+  await expect(list.getByRole("listitem").first()).toBeVisible();
+  await expect(dialog).toContainText(/\d+ titles? with more than one copy/);
+  await expect(list.getByRole("button", { name: /^Remove the copy at / }).first()).toBeDisabled();
+  await expect(dialog).toContainText("Removing a copy needs library editing turned on.");
+
+  // Writable: Remove asks first, and a No leaves the copy where it is.
+  await open(page, "?writable=1");
+  dialog = await prefs(page);
+  await dialog.getByRole("tab", { name: "Advanced", exact: true }).click();
+  await dialog.getByRole("tab", { name: "Database" }).click();
+  await dialog.getByRole("button", { name: "Find duplicates" }).click();
+  list = dialog.getByRole("list", { name: "Duplicates" });
+  await page.evaluate(() => { (window as unknown as { __confirmAnswer: boolean }).__confirmAnswer = false; });
+  await list.getByRole("button", { name: /^Remove the copy at / }).first().click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __confirmed?: string[] }).__confirmed?.at(-1)))
+    .toMatch(/^Remove this copy of .+ from the collection\? It also leaves every playlist it is in\./);
+  await expect(dialog).not.toContainText("Removed a copy");
+  await page.evaluate(() => { (window as unknown as { __confirmAnswer: boolean }).__confirmAnswer = true; });
+  await list.getByRole("button", { name: /^Remove the copy at / }).first().click();
+  await expect(dialog).toContainText(/Removed a copy of /);
+  await expect(dialog.getByRole("button", { name: "Look again" })).toBeEnabled();
+});

@@ -40,9 +40,13 @@ export function DuplicateTracksDialog({ playlist, duplicates, total, onAnswer }:
   }, [onAnswer]);
 
   const title = t("Duplicate tracks");
-  const message = duplicates === total
-    ? t("{count} of the selected tracks are already in {name}.", { count: duplicates, name: playlist })
-    : t("{count} of the {total} selected tracks are already in {name}.", { count: duplicates, total, name: playlist });
+  const message = total === 1
+    ? t("This track is already in {name}.", { name: playlist })
+    : duplicates === total
+      ? t("{count} of the selected tracks are already in {name}.", { count: duplicates, name: playlist })
+      : duplicates === 1
+        ? t("1 of the {total} selected tracks is already in {name}.", { total, name: playlist })
+        : t("{count} of the {total} selected tracks are already in {name}.", { count: duplicates, total, name: playlist });
   return (
     <div className={styles.backdrop} role="presentation">
       <div className={styles.window} role="alertdialog" aria-modal="true" aria-label={title}

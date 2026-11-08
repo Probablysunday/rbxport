@@ -7,8 +7,9 @@
  * Library Protection and Edit Library. Others holds BEAT/BPM SYNC, the
  * quantize beat value and play history.
  *
- * Not here: Auto Relocate Search Folders and Duplicates (hidden; Auto
- * Relocate searches the stored folders, Music, Movies and Desktop by
+ * Database also lists Duplicates: tracks that share a title and an artist.
+ *
+ * Not here: Auto Relocate Search Folders (hidden; Auto Relocate searches the stored folders, Music, Movies and Desktop by
  * default), iTunes and rekordbox xml (neither is read), Auto Export and
  * Database management's Move Database (neither is built), My Tag, colour names, display
  * speed, the long-press menu and the Tag List (none exist here), the
@@ -18,7 +19,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { getBackend } from "@/ipc/client";
-import type { DatabaseDrive, LibrarySummary } from "@/ipc/types";
+import type { DatabaseDrive, Duplicates, LibrarySummary } from "@/ipc/types";
 import { useTranslation } from "@/i18n";
 import { QUANTIZE_BEATS } from "@/lib/preferences";
 import { usePreferencesContext } from "@/store/usePreferences";
@@ -216,9 +217,100 @@ export function AdvancedPane({ tab, summary }: {
           </dd>
         </dl>
       </Section>
+      <DuplicatesSection readOnly={(summary?.readOnly ?? false) || advanced.protectLibrary} />
       {/* Last, as in rekordbox, under the external-drive settings. */}
       <DatabaseManagementSection readOnly={summary?.readOnly ?? false} />
     </>
+  );
+}
+
+/** How many duplicate groups to list. The counts above the list are exact. */
+const DUPLICATE_GROUPS_SHOWN = 20;
+
+/** `m:ss`, for telling two copies apart by length. */
+function minutes(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Duplicates: tracks that share a title and an artist. Looking changes
+ * nothing; a copy is removed from the collection one at a time, after
+ * asking, and its file stays where it is.
+ */
+function DuplicatesSection({ readOnly }: { readOnly: boolean }) {
+  const [found, setFound] = useState<Duplicates | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  const scan = async () => {
+    const backend = await getBackend();
+    setFound(await backend.findDuplicates(DUPLICATE_GROUPS_SHOWN));
+  };
+  const run = (work: () => Promise<void>) => {
+    setBusy(true);
+    setNote(null);
+    void work()
+      .catch((e: unknown) => setNote(e instanceof Error ? e.message : String(e)))
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <Section title="Duplicates">
+      <div className={styles.actions}>
+        <Button disabled={busy} onClick={() => run(scan)}>
+          {busy && found === null ? "Looking…" : found === null ? "Find duplicates" : "Look again"}
+        </Button>
+      </div>
+      {found === null ? null : found.groups === 0 ? (
+        <Note>No two tracks share a title and an artist.</Note>
+      ) : (
+        <>
+          <Note>
+            {found.groups.toLocaleString()} title{found.groups === 1 ? "" : "s"} with more than one copy,{" "}
+            {found.extra.toLocaleString()} extra cop{found.extra === 1 ? "y" : "ies"} in all.
+            {readOnly ? " Removing a copy needs library editing turned on." : ""}
+          </Note>
+          <ul className={styles.list} aria-label="Duplicates">
+            {found.shown.map((group) => (
+              <li key={`${group.title}\u0000${group.artist}`}>
+                <span className={styles.listTitle}>
+                  {group.title}
+                  {group.artist ? ` — ${group.artist}` : ""}
+                </span>
+                {group.tracks.map((track) => (
+                  <span key={track.id} className={styles.listPath}>
+                    <span>
+                      {minutes(track.durationSec)} · {track.path || "(no file)"}
+                      {track.present ? "" : " (file missing)"}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.listAction}
+                      aria-label={`Remove the copy at ${track.path || "no file"}`}
+                      disabled={readOnly || busy}
+                      onClick={() => run(async () => {
+                        const backend = await getBackend();
+                        const sure = await backend.confirm(
+                          `Remove this copy of ${group.title} from the collection? It also leaves every playlist it is in. The file stays where it is.`,
+                        );
+                        if (!sure) return;
+                        await backend.edits.removeFromCollection([track.id]);
+                        await scan();
+                        setNote(`Removed a copy of ${group.title}.`);
+                      })}
+                    >
+                      Remove
+                    </button>
+                  </span>
+                ))}
+              </li>
+            ))}
+          </ul>
+          {found.groups > found.shown.length ? <Note>Showing the first {found.shown.length}.</Note> : null}
+        </>
+      )}
+      {note ? <Note>{note}</Note> : null}
+    </Section>
   );
 }
 

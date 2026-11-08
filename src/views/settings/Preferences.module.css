@@ -456,6 +456,44 @@
 .facts dt { color: var(--c-device-label); }
 .facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
+/* Duplicates: bounded, since a library can hold thousands. */
+.list {
+  margin: 8px 0 0 calc(var(--s-pref-control-inset) - var(--s-pref-section-pad-x));
+  padding: 0;
+  list-style: none;
+  max-height: 240px;
+  overflow-y: auto;
+  font-size: var(--f-size-pref-small);
+}
+.list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--c-raised);
+}
+.list li:last-child { border-bottom: 0; }
+.listTitle { color: var(--c-icon-on); }
+.listPath {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--c-text-dim);
+}
+.listPath > span { flex: 1; min-width: 0; word-break: break-all; }
+.listAction {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--c-raised);
+  border-radius: 2px;
+  background: var(--c-button);
+  color: var(--c-icon-on);
+  font: inherit;
+  cursor: default;
+}
+.listAction:hover:not(:disabled) { border-color: var(--c-accent); }
+.listAction:disabled { opacity: 0.4; }
+
 /* ---- Keyboard ---- */
 .keys {
   margin: calc(var(--s-pref-key-list-top) - var(--s-pref-section-pad-top)) calc(var(--s-pref-key-list-inset) - var(--s-pref-section-pad-x)) 0;
