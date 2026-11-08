@@ -285,7 +285,9 @@ export function TrackFilter({ state, onChange, values, masterBpmX100 }: TrackFil
               </div>
               <div className={`${styles.list} ${styles.tagList}`} role="listbox" aria-disabled>
                 {category?.tags.map((name) => (
-                  <div key={name} className={styles.chip} role="option" aria-selected={false}>
+                  // Long names share a prefix ("Components ▶ …"), so the cut
+                  // keeps the start and the whole name is in the tooltip.
+                  <div key={name} className={styles.chip} role="option" aria-selected={false} title={name}>
                     {name}
                   </div>
                 ))}
