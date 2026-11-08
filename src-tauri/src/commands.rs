@@ -3807,6 +3807,18 @@ pub async fn remove_tracks_from_playlist<R: tauri::Runtime>(
     }).await
 }
 
+/// Takes the later copies of each track a playlist lists twice off it.
+#[tauri::command]
+pub async fn remove_playlist_duplicates<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    state: State<'_, Arc<AppState>>,
+    playlist: String,
+) -> AppResult<EditHistoryDto> {
+    recorded_edit(app, state, "remove_playlist_duplicates", Touched::Playlists, "Remove Duplicates", move |w| {
+        w.remove_duplicate_entries_with_undo(&playlist).map(|(_, edit)| LibraryEdit::RemovePlaylistTracks(edit))
+    }).await
+}
+
 /// Tracks that share a title and an artist, case and accents aside.
 ///
 /// One pass over the folded title column and the artists' folded names —

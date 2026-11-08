@@ -1070,6 +1070,17 @@ export function createMockBackend(options: MockOptions = {}): Backend {
         redo: () => membership.set(playlist, [...current]),
       });
     },
+    removePlaylistDuplicates: (playlist) => {
+      const before = [...membersOf(playlist)];
+      const current = before.filter((t, i) => before.indexOf(t) === i);
+      if (current.length === before.length) return Promise.reject(new Error("This playlist has no track in it twice."));
+      membership.set(playlist, current);
+      return recordEdit({
+        label: "Remove Duplicates",
+        undo: () => membership.set(playlist, [...before]),
+        redo: () => membership.set(playlist, [...current]),
+      });
+    },
     resetPlayCount: (tracks) => {
       const before = tracks.map((id) => {
         const row = all.find((candidate) => candidate.id === id);

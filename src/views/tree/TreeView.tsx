@@ -389,6 +389,8 @@ export interface TreeViewProps {
   onAddArtwork?: (node: TreeNode) => void;
   /** Sort Items: a folder's children put in name order. */
   onSortItems?: (folder: TreeNode) => void;
+  /** Takes the extra copies of repeated tracks off a playlist. */
+  onRemoveDuplicates?: (playlist: TreeNode) => void;
   /** Add To Shortcut: the rail takes the node as a button of its own. */
   onAddToShortcut?: (node: TreeNode) => void;
   /** The rail's shortcut buttons, what opens one, and what deletes one. */
@@ -415,7 +417,7 @@ export const TreeView = memo(function TreeView({
   onCreatePlaylist, onCreateFolder, onDeleteNode, onRenameNode, onMoveNode, readOnly = false,
   onExpand, showCounts = false, onOpenSync,
   initialExpansion, onExpansionChange,
-  onCreateSmartPlaylist, onEditSmartPlaylist, onAddArtwork, onAddToShortcut, onSortItems,
+  onCreateSmartPlaylist, onEditSmartPlaylist, onAddArtwork, onAddToShortcut, onSortItems, onRemoveDuplicates,
   railShortcuts, onOpenShortcut, onDeleteShortcut,
   onEjectDevice, ejectingDeviceId, deviceBusy = false,
   onDeviceCreate, onDeviceRename, onDeviceDelete, onDeviceImport,
@@ -741,6 +743,9 @@ export const TreeView = memo(function TreeView({
                 break;
               case "sortItems":
                 onSortItems?.(menu.node);
+                break;
+              case "removeDuplicates":
+                onRemoveDuplicates?.(menu.node);
                 break;
               case "rename":
                 beginRename(menu.node);

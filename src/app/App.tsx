@@ -1677,6 +1677,14 @@ function AppBody() {
     [tree, write],
   );
 
+  const removeDuplicates = useCallback(
+    (playlist: TreeNode) => write(async (backend) => {
+      await backend.edits.removePlaylistDuplicates(playlist.id);
+      return `Removed the duplicates from ${playlist.name}. Edit › Undo puts them back.`;
+    }),
+    [write],
+  );
+
   // Add To Shortcut: the rail takes the playlist as a button of its own.
   // rekordbox 7.2.11 takes the same playlist twice; a second button that
   // opens the same thing is nothing to a user, so this keeps one.
@@ -3005,14 +3013,14 @@ function AppBody() {
     onMoveNode: readOnly ? undefined : moveNode, onExpand: expandNode,
     showCounts: viewPrefs.playlistCounts, onOpenSync: openSyncManager,
     onCreateSmartPlaylist: createSmartPlaylistIn, onEditSmartPlaylist: editSmartPlaylist,
-    onAddArtwork: addPlaylistArtwork, onAddToShortcut: addToShortcut, onSortItems: sortItems,
+    onAddArtwork: addPlaylistArtwork, onAddToShortcut: addToShortcut, onSortItems: sortItems, onRemoveDuplicates: removeDuplicates,
     onEjectDevice: (node: TreeNode) => { void ejectDeviceFromTree(node); },
     ejectingDeviceId, deviceBusy: syncing || exportRunning || ejectingDeviceId !== null, readOnly,
   }), [
     draggedTracks, addDraggedTo, readOnly, importDroppedFilesTo, exportPlaylist, menuDevices, exportPlaylistFile,
     createPlaylistIn, createFolderIn, deleteNode, renameNode, moveNode, expandNode,
     viewPrefs.playlistCounts, openSyncManager, createSmartPlaylistIn, editSmartPlaylist,
-    addPlaylistArtwork, addToShortcut, sortItems, ejectDeviceFromTree, ejectingDeviceId, syncing,
+    addPlaylistArtwork, addToShortcut, sortItems, removeDuplicates, ejectDeviceFromTree, ejectingDeviceId, syncing,
     exportRunning,
   ]);
   const subList = useMemo(() => ({
@@ -3240,6 +3248,7 @@ function AppBody() {
           onAddArtwork={addPlaylistArtwork}
           onAddToShortcut={addToShortcut}
           onSortItems={sortItems}
+          onRemoveDuplicates={removeDuplicates}
           railShortcuts={railShortcuts}
           onOpenShortcut={openShortcut}
           onDeleteShortcut={deleteShortcut}

@@ -50,7 +50,8 @@ export type TreeAction =
   | "rename"
   | "delete"
   | "addToShortcut"
-  | "sortItems";
+  | "sortItems"
+  | "removeDuplicates";
 
 /** The deck's ≡ menu: the choices it changes, and the one thing it does. */
 export type DeckAction =
@@ -298,6 +299,9 @@ export function treeMenu(
     // of thing — the node itself rather than what is in it.
     { label: "Rename Playlist", action: "rename" },
     { label: "Delete Playlist", action: "delete" },
+    // Ours: the extra copies an "Add duplicates" left, in one undoable step.
+    // A track's rows share its id, so picking one copy to remove picks all.
+    ...(smart ? [] : [{ label: "Remove Duplicates", action: "removeDuplicates" as const }]),
     SEPARATOR,
     {
       label: "Export a playlist to a file",
@@ -522,6 +526,7 @@ const WRITES: ReadonlySet<string> = new Set([
   "editSmartPlaylist",
   "addArtwork",
   "sortItems",
+  "removeDuplicates",
   "resetPlayCount",
   "convertMemoryCues",
   "removeFromPlaylist",

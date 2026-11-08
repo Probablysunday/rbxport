@@ -1602,6 +1602,34 @@ impl Writer {
         Ok((changed, edit))
     }
 
+    /// Takes the later copies of every track a playlist lists more than once
+    /// off it, keeping each track's first entry where it is. Refused when
+    /// the playlist holds no track twice, so there is nothing to undo.
+    pub fn remove_duplicate_entries_with_undo(&mut self, playlist: &str) -> Result<(Changed, PlaylistTrackRemoval)> {
+        refuse_if_smart(self.library.connection(), playlist)?;
+        let conn = self.library.connection();
+        let mut statement = conn.prepare(
+            "SELECT ID, ContentID FROM djmdSongPlaylist
+             WHERE PlaylistID = ?1 AND rb_local_deleted = 0 ORDER BY TrackNo, ID",
+        )?;
+        let memberships: Vec<(String, String)> = statement
+            .query_map(params![playlist], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        drop(statement);
+        let mut seen = std::collections::HashSet::new();
+        let removed: Vec<String> = memberships.iter()
+            .filter(|(_, content)| !seen.insert(content.as_str()))
+            .map(|(id, _)| id.clone())
+            .collect();
+        if removed.is_empty() {
+            return Err(DbError::WriteRefused("This playlist has no track in it twice.".to_owned()));
+        }
+        let order = memberships.into_iter().map(|(id, _)| id).collect();
+        let edit = PlaylistTrackRemoval { playlist: playlist.to_owned(), removed, order };
+        let changed = self.set_track_removal(&edit, true)?;
+        Ok((changed, edit))
+    }
+
     pub fn undo_track_removal(&mut self, edit: &PlaylistTrackRemoval) -> Result<Changed> {
         self.set_track_removal(edit, false)
     }

@@ -650,6 +650,7 @@ pub fn run() {
             commands::remove_from_tag_list,
             commands::clear_tag_list,
             commands::remove_tracks_from_playlist,
+            commands::remove_playlist_duplicates,
             commands::export_playlist_file,
             commands::export_loop_wav,
             commands::import_xml,

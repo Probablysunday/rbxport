@@ -1757,5 +1757,6 @@
   "Shift this deck at most two semitones into a key that mixes with the master's.": "Shift this deck at most two semitones into a key that mixes with the master's.",
   "This deck is the master; key sync the other one to it.": "This deck is the master; key sync the other one to it.",
   "1 of the {total} selected tracks is already in {name}.": "1 of the {total} selected tracks is already in {name}.",
-  "This track is already in {name}.": "This track is already in {name}."
+  "This track is already in {name}.": "This track is already in {name}.",
+  "Remove Duplicates": "Remove Duplicates"
 }

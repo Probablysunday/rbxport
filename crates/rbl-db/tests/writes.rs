@@ -424,6 +424,26 @@ fn adding_a_track_already_present_can_add_it_again() {
 }
 
 #[test]
+fn removing_duplicates_keeps_each_tracks_first_entry_and_undoes() {
+    let mut f = fixture();
+    let list = f.writer.create_playlist("Set", ROOT).unwrap();
+    f.writer.add_tracks(&list, &[track_id(0), track_id(1)]).unwrap();
+    f.writer.add_tracks_allowing(&list, &[track_id(0), track_id(2), track_id(1), track_id(0)], true).unwrap();
+    let before = f.order(&list);
+
+    let (changed, edit) = f.writer.remove_duplicate_entries_with_undo(&list).unwrap();
+    assert_eq!(changed.rows, 3);
+    assert_eq!(f.order(&list), vec![track_id(0), track_id(1), track_id(2)]);
+    assert_eq!(f.track_numbers(&list), vec![1, 2, 3]);
+
+    f.writer.undo_track_removal(&edit).unwrap();
+    assert_eq!(f.order(&list), before);
+    // Nothing left to take off: refused rather than an empty undo step.
+    f.writer.redo_track_removal(&edit).unwrap();
+    assert!(f.writer.remove_duplicate_entries_with_undo(&list).is_err());
+}
+
+#[test]
 fn setting_a_playlists_tracks_replaces_them_in_the_order_given() {
     let mut f = fixture();
     let list = f.writer.create_playlist("Set", ROOT).unwrap();

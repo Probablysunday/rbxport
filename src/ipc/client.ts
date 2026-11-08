@@ -652,6 +652,8 @@ async function realBackend(): Promise<Backend> {
       clearTagList: () => invoke<number>("clear_tag_list"),
       removeTracksFromPlaylist: (playlist, tracks) =>
         invoke<EditHistoryState>("remove_tracks_from_playlist", { playlist, tracks }),
+      removePlaylistDuplicates: (playlist) =>
+        invoke<EditHistoryState>("remove_playlist_duplicates", { playlist }),
       resetPlayCount: (tracks) => invoke<EditHistoryState>("reset_play_count", { tracks }),
       recordPlay: (track) => invoke<number>("record_play", { track }),
       removeFromHistory: (history, tracks) => invoke<number>("remove_from_history", { history, tracks }),

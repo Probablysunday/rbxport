@@ -836,3 +836,26 @@ test("the status bar tallies the open playlist as rekordbox does, and the collec
   await item(page, "Eurodance").click();
   await expect(bar.getByText(before, { exact: true })).toBeVisible();
 });
+
+test("Remove Duplicates takes the extra copies off a playlist, and Undo puts them back", async ({ page }) => {
+  await open(page);
+  await item(page, "Melodic Vox").click();
+  await expect(page.getByTestId("browser-title")).toContainText("Melodic Vox (30 Tracks)");
+  // The first track again, by Add To Playlist's "Add duplicates".
+  await rows(page).first().click({ button: "right" });
+  await page.getByRole("menu", { name: "Track" }).getByRole("menuitem", { name: "Add To Playlist" }).hover();
+  await page.getByRole("menuitem", { name: "Melodic Vox" }).first().click();
+  await page.getByRole("alertdialog", { name: "Duplicate tracks" }).getByRole("button", { name: "Add duplicates" }).click();
+  await expect(page.getByTestId("browser-title")).toContainText("Melodic Vox (31 Tracks)");
+
+  await chooseFromTreeMenu(page, item(page, "Melodic Vox"), "Remove Duplicates");
+  await expect(page.getByRole("contentinfo")).toContainText("Removed the duplicates from Melodic Vox.");
+  await expect(page.getByTestId("browser-title")).toContainText("Melodic Vox (30 Tracks)");
+
+  await page.evaluate(() => (window as unknown as { __menu?: (id: string) => void }).__menu?.("undo"));
+  await expect(page.getByTestId("browser-title")).toContainText("Melodic Vox (31 Tracks)");
+
+  // With none left, it says so rather than doing nothing silently.
+  await chooseFromTreeMenu(page, item(page, "Hardstyle"), "Remove Duplicates");
+  await expect(page.getByRole("contentinfo")).toContainText("This playlist has no track in it twice.");
+});

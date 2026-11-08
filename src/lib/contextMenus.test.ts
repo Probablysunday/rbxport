@@ -128,6 +128,7 @@ describe("treeMenu", () => {
       "Add Artwork",
       "Rename Playlist",
       "Delete Playlist",
+      "Remove Duplicates",
       "Export a playlist to a file",
       "Add To Shortcut",
     ]);
@@ -154,7 +155,8 @@ describe("treeMenu", () => {
     const smart = treeMenu("smartPlaylist");
     expect(smart[0]).toEqual({ label: "Edit the Intelligent Playlist", action: "editSmartPlaylist" });
     expect(smart[1]).toBe(SEPARATOR);
-    expect(smart.slice(2)).toEqual(treeMenu("playlist"));
+    // Less Remove Duplicates: an intelligent playlist's tracks come from its rules.
+    expect(smart.slice(2)).toEqual(treeMenu("playlist").filter((row) => row === SEPARATOR || row.action !== "removeDuplicates"));
     expect(entriesOf(treeMenu("playlist")).map((e) => e.label)).not.toContain("Edit the Intelligent Playlist");
     // rekordbox 7.2.11 keeps "Add To Shortcut" on a playlist that is one
     // already; the shortcut's own menu is the one row that deletes it.
