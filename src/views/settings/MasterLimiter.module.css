@@ -18,7 +18,9 @@
 .field:first-child { padding-top: 0; }
 .field:last-child { padding-bottom: 0; }
 .field .readout { display: contents; }
-.field .readout > strong { grid-column: 1; grid-row: 1; padding-top: 3px; font-weight: 500; }
+/* A long word (German "Eingangsverstärkung") breaks inside the column
+   rather than running over the slider beside it. */
+.field .readout > strong { grid-column: 1; grid-row: 1; padding-top: 3px; font-weight: 500; overflow-wrap: anywhere; hyphens: auto; }
 .field .value { grid-column: 3; grid-row: 1; padding: 3px 0; text-align: right; }
 .field .help { grid-column: 2 / -1; grid-row: 2; margin: 0; }
 .field > div:last-child { grid-column: 2; grid-row: 1; margin: 0; width: 100%; }
