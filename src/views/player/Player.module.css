@@ -1419,6 +1419,24 @@ button.cueDelete:disabled { color: var(--c-icon-off); }
   justify-content: flex-start;
   gap: 4px 10px;
   padding-left: 8px;
+  /* Never narrower than the hot cues: squeezed, its wrapped rows ran under
+     the beat jumps beside it. */
+  min-width: auto;
+}
+
+/* A narrow deck (a small window) keeps every control in reach rather than
+   overlapping or clipping them: the elapsed time and the artist (no room
+   left for more than a letter of it) go so the BPM keeps its place, the pads
+   close up, and the beat jumps stack; Q and the menu wrap under the tabs. */
+.player[data-performance] { container: perf-deck / inline-size; }
+@container perf-deck (max-width: 600px) {
+  .pads { --s-pad-cue-gap: 2.5px; }
+  .padJumps { flex-direction: column; padding: 0 4px; }
+}
+@container perf-deck (max-width: 540px) {
+  .head .elapsed,
+  .head .artist { display: none; }
+  .head .readout { min-width: max-content; }
 }
 
 .headTransport {
