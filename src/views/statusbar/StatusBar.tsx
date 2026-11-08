@@ -189,7 +189,7 @@ export function StatusBar({
               ...analysisFailed.map(f => `${f.title}: ${f.reason}`)].join("\n")
             : tip("These tracks could not be analysed; the run carried on past them")}
         >
-          {analysisFailures} failed
+          {analysisFailures} not analysed
         </span>
       ) : null}
       <span className={styles.selection}>{selection}</span>

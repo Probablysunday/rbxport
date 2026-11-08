@@ -30,7 +30,17 @@
   gap: 12px;
 }
 
-.title { margin-right: auto; font-size: var(--f-size-ui); color: var(--c-text); }
+/* One line, cut with an ellipsis: in a narrow sub-browser it wrapped and ran
+   down over the column headings. */
+.title {
+  margin-right: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--f-size-ui);
+  color: var(--c-text);
+}
 
 /* The Track Filter button: an outlined square that goes blue when the bar is
    showing, the glyph white either way. The controls sit together to the

@@ -1566,7 +1566,7 @@ test("a track that cannot be analysed does not stop the run", async ({ page }) =
   await page.getByRole("dialog", { name: "Analysis Setting" }).getByRole("button", { name: "OK", exact: true }).click();
 
   const status = page.getByRole("contentinfo");
-  await expect(status).toContainText("failed", { timeout: 15_000 });
+  await expect(status).toContainText("not analysed", { timeout: 15_000 });
   // And it carried on rather than stopping there.
   await expect(status.getByRole("button", { name: "Stop" })).toHaveCount(0, { timeout: 15_000 });
 });

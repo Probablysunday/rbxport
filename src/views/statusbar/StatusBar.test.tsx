@@ -115,7 +115,7 @@ it("names each track that failed analysis and why in the failure badge (#351)", 
     { title: "Broken Two", reason: "reached probe limit" },
   ]} />));
   const badge = host.querySelector<HTMLElement>("span[title*='Broken One']");
-  expect(badge?.textContent).toBe("2 failed");
+  expect(badge?.textContent).toBe("2 not analysed");
   expect(badge?.title).toContain("Broken One: probe reach EOF at 128 bytes");
   expect(badge?.title).toContain("Broken Two: reached probe limit");
 });

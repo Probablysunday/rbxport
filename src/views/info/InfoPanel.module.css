@@ -378,7 +378,9 @@
 }
 .dateBoxes {
   display: grid;
-  grid-template-columns: 94fr 218fr 122fr;
+  /* rekordbox's proportions, but the day and the year never narrower than
+     their digits and the spinner: a narrow panel put the spinner on "2026". */
+  grid-template-columns: minmax(3.2em, 94fr) minmax(0, 218fr) minmax(4.6em, 122fr);
   column-gap: 1.5px;
   height: var(--s-info-field-h);
 }
@@ -387,7 +389,8 @@
   background: var(--c-info-field);
   display: flex;
   align-items: center;
-  padding: 0 5px;
+  /* The spinner sits over the right end; the text stops short of it. */
+  padding: 0 calc(var(--s-info-spinner-right) + 12px) 0 5px;
   min-width: 0;
   overflow: hidden;
 }
@@ -395,6 +398,8 @@
   font-size: var(--f-size-info);
   color: var(--c-info-form-text);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .dateClear {
   width: var(--s-info-date-clear-w);
