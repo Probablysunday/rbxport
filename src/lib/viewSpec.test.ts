@@ -8,6 +8,11 @@ const folder: TreeNode = { id: "f-1", name: "SHOWS", kind: "folder", depth: 1 };
 const device: TreeNode = { id: "device:/Volumes/X", name: "X", kind: "device", depth: 0 };
 
 describe("specForNode", () => {
+  it("opens the Histories heading empty, not as the whole collection", () => {
+    const heading = { id: "histories", name: "Histories", kind: "histories", depth: 0 } as const;
+    expect(specForNode(heading, "", null).source).toEqual({ kind: "folder", path: "" });
+  });
+
   it("narrows to a playlist", () => {
     expect(specForNode(playlist, "", null).source).toEqual({ kind: "playlist", id: "pl-1" });
   });

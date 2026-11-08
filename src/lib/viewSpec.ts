@@ -66,7 +66,9 @@ export function specForNode(
           ? { kind: "history", id: node.id }
           : node?.kind === "directory"
             ? { kind: "folder", path: explorerPath(node.id) ?? "" }
-            : node?.kind === "explorer"
+            // The Histories heading lists no session of its own: empty, as
+            // the Explorer's is, rather than the whole collection under its name.
+            : node?.kind === "explorer" || node?.kind === "histories"
               ? { kind: "folder", path: "" }
               : node?.kind === "relatedCriterion" || node?.kind === "related"
                 ? { kind: "related", track: relatedTo ?? "", criterion: relatedCriterionOf(node.id) ?? "bpmKey" }
