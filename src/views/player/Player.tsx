@@ -2637,7 +2637,7 @@ export const Player = memo(function Player({
           {/* The title and the sync buttons share a line in PERFORMANCE, so the
               title uses the width the buttons leave rather than the artist's. */}
           <div className={styles.titleLine}>
-            <span className={styles.title} data-testid="player-title">
+            <span className={styles.title} data-testid="player-title" data-i18n-ignore="">
               {track ? track.title : ""}
             </span>
             {/* Sync belongs to the two-deck layouts and to nothing else: one
@@ -2697,9 +2697,9 @@ export const Player = memo(function Player({
           </div>
           {track ? (
             <>
-              <span className={styles.artist}>{track.artist}</span>
+              <span className={styles.artist} data-i18n-ignore="">{track.artist}</span>
               <TimeReadouts source={playback} total={total} classes={styles} />
-              <div className={styles.keyControl}>
+              <div className={styles.keyControl} data-i18n-ignore="">
                 <KeyShift musicalKey={formatKey(track.key, viewPrefs.keyDisplay)} shift={playback.keyShift}
                   disabled={!canShiftKey} onChange={shiftKeyByHand} />
               </div>

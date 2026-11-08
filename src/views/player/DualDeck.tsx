@@ -64,7 +64,7 @@ export const DualHead = memo(function DualHead({
   return (
     <div className={styles.head} data-testid="player-head-row">
       {sleeve}
-      <div className={styles.text}>
+      <div className={styles.text} data-i18n-ignore="">
         <span className={styles.title} data-testid="player-title">
           {track ? track.title : ""}
         </span>
@@ -76,7 +76,7 @@ export const DualHead = memo(function DualHead({
         {/* Rekordbox's readouts, hairline-separated: the remaining and
             elapsed times share a cell, then the key, then the BPM. Drawn
             only with a track, as the one-deck title row does. */}
-        <div className={styles.readouts}>
+        <div className={styles.readouts} data-i18n-ignore="">
           {track ? (
             <>
               <span className={styles.cell}>

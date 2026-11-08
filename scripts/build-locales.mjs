@@ -27,6 +27,18 @@ const locales = {
 // Product terminology that should differ from rekordbox's untranslated loanwords
 // or from a generic machine translation. Machine translation also tends to
 // give singular keys a plural form; those corrections live here too.
+// The deck's and mixer's own labels, as a CDJ and a DJM print them: in
+// English in every market. Machine translation made CUE a billiard cue, AU
+// "Australia" and MA a master's degree, so these stay as written.
+const HARDWARE_TERMS = [
+  "CUE", "Q", "AU", "MA", "MASTER", "GRID", "KEY SYNC", "BEAT SYNC", "SYNC", "PLAY", "RST",
+  "CUE/LOOP", "HOT CUE", "MEMORY", "INFO", "RESET", "MASTER TEMPO", "Master Tempo", "BPM",
+  "HIGH", "MID", "LOW", "4Beats", "8Beats", "16Beats",
+  // Deck letters, channel sides and the loop and tap buttons: "A" came back
+  // as the article ("Un", "一個"), IN as "DANS", TAP as "塔普".
+  "A", "B", "L", "R", "IN", "OUT", "TAP", "KEY",
+];
+
 const overrides = {
   el: {
     "Needs {space} free while syncing": "Απαιτούνται {space} ελεύθερα κατά τον συγχρονισμό",
@@ -349,6 +361,7 @@ for (const [locale, filename] of Object.entries(locales)) {
     catalog[key] = restorePlaceholders(key, translated);
   }
   Object.assign(catalog, overrides[locale] ?? {});
+  for (const term of HARDWARE_TERMS) if (ui.has(term)) catalog[term] = term;
   await writeFile(resolve(outputRoot, `${locale}.json`), `${JSON.stringify(catalog, null, 2)}\n`);
   console.log(`${locale}: ${Object.keys(catalog).length} entries, ${ui.size}/${ui.size} UI strings`);
 }

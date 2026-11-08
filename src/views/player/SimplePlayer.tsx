@@ -126,7 +126,7 @@ export const SimplePlayer = memo(function SimplePlayer({
       </button>
 
       <div className={styles.main}>
-        <div className={styles.readouts}>
+        <div className={styles.readouts} data-i18n-ignore="">
           <span className={styles.title} data-testid="simple-player-title">
             {track ? track.title : ""}
           </span>

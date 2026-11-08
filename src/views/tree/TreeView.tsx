@@ -286,6 +286,8 @@ const Row = memo(function Row({
         />
       ) : (
         <span className={styles.label}
+          // A name the person gave, not the UI's: a playlist "All" stays "All".
+          data-i18n-ignore={USER_NAMED.has(node.kind) ? "" : undefined}
           onMouseDown={(e) => {
             // Capture selection before the row's mousedown selects it.
             pressedOnSelected.current = selected && e.button === 0 && !e.shiftKey && !e.metaKey && !e.ctrlKey;
@@ -333,6 +335,9 @@ function isDeviceMenuKind(kind: TreeNode["kind"]): kind is "devicePlaylists" | "
 
 /** The measured row pitch, `--s-row-height`. */
 const TREE_ROW_H = 25;
+
+/** Nodes named by the person or the disk, which the UI's catalog must not translate. */
+const USER_NAMED: ReadonlySet<string> = new Set(["playlist", "smartPlaylist", "folder", "directory", "device", "history"]);
 
 export interface TreeViewProps {
   nodes: readonly TreeNode[];

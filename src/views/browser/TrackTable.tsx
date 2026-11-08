@@ -604,6 +604,8 @@ const TrackRow = memo(function TrackRow({
         onReorderDrop({ index, below: e.clientY > box.top + box.height / 2 });
       }}
       data-drop={dropEdge ?? undefined}
+      // The library's own words: a title "Red" or a key "A" is not the UI's.
+      data-i18n-ignore=""
       role="row"
       aria-selected={selected}
     >

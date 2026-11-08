@@ -565,3 +565,18 @@ test("Advanced › Database finds duplicates and removes a copy only after askin
   await expect(dialog).toContainText(/Removed a copy of /);
   await expect(dialog.getByRole("button", { name: "Look again" })).toBeEnabled();
 });
+
+test("another language translates the UI, not the deck's hardware labels or the library's own words", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rbl.preferences", JSON.stringify({ view: { locale: "de" } })));
+  await open(page);
+  await page.locator('[role="gridcell"][data-col="title"]').nth(3).dblclick();
+  // UI words are German.
+  await expect(page.getByRole("tab", { name: "Wiedergabelisten" })).toBeVisible();
+  // Hardware labels stay as a CDJ prints them.
+  for (const label of ["CUE", "MEMORY", "AU", "MA", "Q", "GRID"]) {
+    await expect(page.getByText(label, { exact: true }).first(), label).toBeVisible();
+  }
+  // A track's key "A" is a key, not the article.
+  const keyA = page.locator('[role="gridcell"][data-col="key"]').filter({ hasText: /^A$/ });
+  await expect(keyA.first()).toBeVisible();
+});
