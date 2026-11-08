@@ -351,6 +351,10 @@
   min-width: 0;
 }
 
+/* Only a grouping for PERFORMANCE; elsewhere its two children sit in the row. */
+.titleLine { display: contents; }
+.titleLine > .sync { order: 1; }
+
 .title {
   font-size: var(--f-size-title);
   font-weight: 700;
@@ -1379,7 +1383,7 @@ button.cueDelete:disabled { color: var(--c-icon-off); }
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
   grid-template-areas:
-    "tr title sync sync sync sync"
+    "tr titleLine titleLine titleLine titleLine titleLine"
     "tr artist remaining elapsed key bpm";
   column-gap: 8px;
   padding: 0 var(--s-player-inset);
@@ -1392,13 +1396,20 @@ button.cueDelete:disabled { color: var(--c-icon-off); }
 .player[data-performance] .head .keyControl { font-size: var(--f-size-sm); padding-left: 8px; line-height: 1.2; }
 .player[data-performance] .head .readout { padding-right: 0; min-width: 0; }
 .player[data-performance] .headTransport { grid-area: tr; }
-.player[data-performance] .head .title { grid-area: title; align-self: end; }
+.player[data-performance] .head .titleLine {
+  grid-area: titleLine;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.player[data-performance] .head .title { flex: 1 1 auto; }
 .player[data-performance] .head .artist { grid-area: artist; margin-left: 0; max-width: none; }
 .player[data-performance] .head .remaining { grid-area: remaining; }
 .player[data-performance] .head .elapsed { grid-area: elapsed; }
 .player[data-performance] .head .keyControl { grid-area: key; }
 .player[data-performance] .head .readout { grid-area: bpm; }
-.player[data-performance] .head .sync { grid-area: sync; justify-self: end; align-self: end; }
+.player[data-performance] .head .sync { flex: none; margin-left: auto; }
 .player[data-performance] .overviewRow { padding: 0 var(--s-player-inset); }
 /* Half a window is not wide enough for the pad row on one line, so it wraps:
    the pads first, then memory, loops and the jumps under them. */

@@ -2579,9 +2579,67 @@ export const Player = memo(function Player({
               {sleeve}
             </div>
           ) : null}
-          <span className={styles.title} data-testid="player-title">
-            {track ? track.title : ""}
-          </span>
+          {/* The title and the sync buttons share a line in PERFORMANCE, so the
+              title uses the width the buttons leave rather than the artist's. */}
+          <div className={styles.titleLine}>
+            <span className={styles.title} data-testid="player-title">
+              {track ? track.title : ""}
+            </span>
+            {/* Sync belongs to the two-deck layouts and to nothing else: one
+                deck has nothing to sync to and nothing to be master of. */}
+            {peerSync ? (
+              <div className={styles.sync} role="group" aria-label="Sync">
+                {onKeySyncToggle ? (
+                  <button
+                    type="button"
+                    className={styles.chip}
+                    aria-label="Key sync"
+                    aria-pressed={keySynced}
+                    data-on={keySynced ? "" : undefined}
+                    disabled={toCamelot(track?.key ?? "") === "" || !canShiftKey || isMaster}
+                    title={tip(
+                      isMaster
+                        ? "This deck is the master; key sync the other one to it."
+                        : keySynced
+                          ? "Holding a key that mixes with the master's; press to stop."
+                          : "Shift this deck at most two semitones into a key that mixes with the master's.",
+                    )}
+                    onClick={onKeySyncToggle}
+                  >
+                    KEY SYNC
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={styles.chip}
+                  aria-label="Beat sync"
+                  aria-pressed={synced}
+                  data-on={synced ? "" : undefined}
+                  disabled={!track || isMaster}
+                  title={tip(
+                    isMaster
+                      ? "This deck is the master; sync the other one to it."
+                      : synced
+                        ? "Following the master's tempo; press to stop."
+                        : "Match this deck to the master's tempo and bar, and keep its tempo.",
+                  )}
+                  onClick={beatSync}
+                >
+                  BEAT SYNC
+                </button>
+                <button
+                  type="button"
+                  className={styles.chip}
+                  aria-label="Sync master"
+                  aria-pressed={isMaster}
+                  data-on={isMaster ? "" : undefined}
+                  onClick={onMaster}
+                >
+                  MASTER
+                </button>
+              </div>
+            ) : null}
+          </div>
           {track ? (
             <>
               <span className={styles.artist}>{track.artist}</span>
@@ -2592,60 +2650,6 @@ export const Player = memo(function Player({
               </div>
               <TempoToggle className={styles.readout} bpmX100={Math.round(bpmX100 * playback.tempo)} baseBpmX100={bpmX100} onBpmChange={setDisplayedBpm} />
             </>
-          ) : null}
-          {/* Sync belongs to the two-deck layouts and to nothing else: one
-              deck has nothing to sync to and nothing to be master of. */}
-          {peerSync ? (
-            <div className={styles.sync} role="group" aria-label="Sync">
-              {onKeySyncToggle ? (
-                <button
-                  type="button"
-                  className={styles.chip}
-                  aria-label="Key sync"
-                  aria-pressed={keySynced}
-                  data-on={keySynced ? "" : undefined}
-                  disabled={toCamelot(track?.key ?? "") === "" || !canShiftKey || isMaster}
-                  title={tip(
-                    isMaster
-                      ? "This deck is the master; key sync the other one to it."
-                      : keySynced
-                        ? "Holding a key that mixes with the master's; press to stop."
-                        : "Shift this deck at most two semitones into a key that mixes with the master's.",
-                  )}
-                  onClick={onKeySyncToggle}
-                >
-                  KEY SYNC
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className={styles.chip}
-                aria-label="Beat sync"
-                aria-pressed={synced}
-                data-on={synced ? "" : undefined}
-                disabled={!track || isMaster}
-                title={tip(
-                  isMaster
-                    ? "This deck is the master; sync the other one to it."
-                    : synced
-                      ? "Following the master's tempo; press to stop."
-                      : "Match this deck to the master's tempo and bar, and keep its tempo.",
-                )}
-                onClick={beatSync}
-              >
-                BEAT SYNC
-              </button>
-              <button
-                type="button"
-                className={styles.chip}
-                aria-label="Sync master"
-                aria-pressed={isMaster}
-                data-on={isMaster ? "" : undefined}
-                onClick={onMaster}
-              >
-                MASTER
-              </button>
-            </div>
           ) : null}
         </div>
         )}
