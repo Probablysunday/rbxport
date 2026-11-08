@@ -1017,7 +1017,8 @@ export function SyncManager({ windowed = false, onClose, onSynced, onReady, onOp
               : loadingTree ? <p className={styles.empty}>Loading playlists…</p>
               : treeError ? <p className={styles.empty} role="alert">{treeError}</p>
               : nodes.length === 0 ? <p className={styles.empty}>No playlists yet. Create a playlist in your library to get started.</p>
-              : visible.length === 0 ? <p className={styles.empty}>No playlists match “{query.trim()}”.</p> : null}
+              // Only for a search: a collapsed [Playlists] row also shows none.
+              : search && visible.length === 0 ? <p className={styles.empty}>No playlists match “{query.trim()}”.</p> : null}
           </div>
         </section>
 

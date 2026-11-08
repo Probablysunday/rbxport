@@ -200,6 +200,11 @@ test("playlist search preserves selections and explains what is needed to sync",
   await expect(sync).toHaveAccessibleDescription("Select playlists to sync.");
   await search.fill("no matching playlist");
   await expect(dialog.getByText("No playlists match “no matching playlist”.", { exact: true })).toBeVisible();
+  // A collapsed [Playlists] row with nothing searched for is not a search
+  // that found nothing.
+  await search.fill("");
+  await dialog.getByRole("button", { name: "Collapse Playlists" }).click();
+  await expect(dialog.getByText(/^No playlists match/)).toHaveCount(0);
 });
 
 test("the [Playlists] box selects every playlist, shows mixed, and SYNC writes them all (#335)", async ({ page }) => {
