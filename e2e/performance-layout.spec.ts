@@ -202,6 +202,11 @@ test("with Load lock on, a playing deck keeps its track until it is paused", asy
 });
 
 test("one zoom serves both waveforms, and the overview never seeks before the track", async ({ page }) => {
+  // Each deck left at its own zoom by an earlier version: they must come back as one.
+  await page.addInitScript(() => {
+    const raw = JSON.parse(localStorage.getItem("rbl.session") ?? "{}");
+    localStorage.setItem("rbl.session", JSON.stringify({ ...raw, waveformZoom: { a: 8, b: 32 } }));
+  });
   const { a } = await performance(page);
   // A single + RST − for the pair, not one per deck.
   await expect(page.getByRole("group", { name: "Waveform zoom" })).toHaveCount(1);
@@ -211,9 +216,11 @@ test("one zoom serves both waveforms, and the overview never seeks before the tr
     return lines.length > 1 ? lines[1]! - lines[0]! : 0;
   });
   const before = [await spacing(0), await spacing(1)];
+  // The same scale on both, from the start and after a press.
+  expect(Math.abs(before[0]! - before[1]!)).toBeLessThan(2);
   await page.getByRole("button", { name: "Zoom out" }).click();
   await expect.poll(() => spacing(0)).not.toBe(before[0]);
-  await expect.poll(() => spacing(1)).not.toBe(before[1]);
+  await expect.poll(async () => Math.abs((await spacing(0)) - (await spacing(1)))).toBeLessThan(2);
 
   // A press at the start of the overview that drifts left lands on 0, not before it.
   const box = (await a.getByTestId("player-overview").boundingBox())!;

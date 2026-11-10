@@ -560,6 +560,9 @@ function AppBody() {
   const compatibilityFormat = prefs.preferences.usbExport.maximumCompatibility ? prefs.preferences.usbExport.conversionFormat : undefined;
   /** How much of the window the deck takes, kept across restarts. */
   const [layout, setLayout] = useState<PlayerLayout>(restored.layout);
+  // One zoom for both: DUAL CONTROL, and always in PERFORMANCE, whose single
+  // + RST − serves both waveforms and must keep them at the same scale.
+  const zoomLinked = deckCount(layout) > 1 && (dual || layout === "performance");
   /**
    * The Traffic Light: which deck's key the browser lights rows against —
    * the MASTER menu above the track list. The key itself is that deck's
@@ -3162,8 +3165,8 @@ function AppBody() {
             sideBySide={layout === "performance"}
             detailSlot={detailA}
             publishZoom={deckCount(layout) > 1 ? publishZoom.a : undefined}
-            bars={deckCount(layout) > 1 && dual ? dualBars : waveformZoom.a}
-            onBars={deckCount(layout) > 1 && dual ? setLinkedZoom : setZoomA}
+            bars={zoomLinked ? dualBars : waveformZoom.a}
+            onBars={zoomLinked ? setLinkedZoom : setZoomA}
             {...(deckCount(layout) > 1 ? linked : {})}
             publishSync={publishSync.a}
             {...(deckCount(layout) > 1 ? { peerSync: peerSync.a } : {})}
@@ -3203,8 +3206,8 @@ function AppBody() {
               sideBySide={layout === "performance"}
               detailSlot={detailB}
               publishZoom={publishZoom.b}
-              bars={dual ? dualBars : waveformZoom.b}
-              onBars={dual ? setLinkedZoom : setZoomB}
+              bars={zoomLinked ? dualBars : waveformZoom.b}
+              onBars={zoomLinked ? setLinkedZoom : setZoomB}
               {...linked}
               publishSync={publishSync.b}
               peerSync={peerSync.b}
