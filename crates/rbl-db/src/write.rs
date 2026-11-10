@@ -156,6 +156,8 @@ const WRITABLE_COLUMNS: &[&str] = &[
     // The information panel's Info tab.
     "Title", "Lyricist", "ReleaseYear", "TrackNo", "DiscNo", "DJPlayCount", "KeyID", "BPM", "ImagePath",
     "ArtistID", "OrgArtistID", "ComposerID", "RemixerID", "AlbumID", "GenreID", "LabelID",
+    // Date Added, which an export writes and a player sorts by.
+    "StockDate",
 ];
 
 /// Lookup tables [`intern`] may add a row to. Same reason as above.
@@ -2609,6 +2611,18 @@ impl Writer {
             TrackField::Key => self.touch_key(content, value),
             TrackField::Bpm => self.set_bpm(content, value),
         }
+    }
+
+    /// Sets a track's Date Added (`StockDate`), as `YYYY-MM-DD`: the form
+    /// rekordbox stores and a player compares as text when it sorts by it.
+    pub fn set_date_added(&mut self, content: &str, date: &str) -> Result<Changed> {
+        let b = date.as_bytes();
+        let valid = b.len() == 10 && b[4] == b'-' && b[7] == b'-'
+            && b.iter().enumerate().all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit());
+        if !valid {
+            return Err(DbError::WriteRefused(format!("{date:?} is not a YYYY-MM-DD date")));
+        }
+        self.touch_content(content, "StockDate", &Value::Text(date.to_owned()))
     }
 
     /// Finds a detected musical key, creating its lookup row when this

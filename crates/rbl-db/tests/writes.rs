@@ -424,6 +424,18 @@ fn adding_a_track_already_present_can_add_it_again() {
 }
 
 #[test]
+fn date_added_is_set_as_a_date_and_nothing_else() {
+    let mut f = fixture();
+    let usn = f.count("SELECT int_1 FROM agentRegistry WHERE registry_id = 'localUpdateCount'");
+    f.writer.set_date_added(&track_id(0), "2024-05-04").unwrap();
+    assert_eq!(f.one::<String>("SELECT StockDate FROM djmdContent WHERE ID = ?1", &[&track_id(0)]), "2024-05-04");
+    assert!(f.count("SELECT int_1 FROM agentRegistry WHERE registry_id = 'localUpdateCount'") > usn);
+    for bad in ["2024-5-4", "04/05/2024", "2024-05-04 10:00", "abcd-ef-gh"] {
+        assert!(f.writer.set_date_added(&track_id(0), bad).is_err(), "{bad}");
+    }
+}
+
+#[test]
 fn removing_one_entry_of_a_repeated_track_leaves_its_other_copies() {
     let mut f = fixture();
     let list = f.writer.create_playlist("Set", ROOT).unwrap();
